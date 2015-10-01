@@ -36,8 +36,8 @@
             set-prioption-name
             prioption-value
             set-prioption-value
-            prioption-predicate
-            set-prioption-predicate
+            prioption-test
+            set-prioption-test
             prioption-terse
             set-prioption-terse
             prioption-long
@@ -50,8 +50,8 @@
             set-puboption-name
             puboption-value
             set-puboption-value
-            puboption-predicate
-            set-puboption-predicate
+            puboption-test
+            set-puboption-test
             puboption-single-char
             set-puboption-single-char
             puboption-terse
@@ -66,8 +66,10 @@
             set-openoption-name
             openoption-value
             set-openoption-value
-            openoption-predicate
-            set-openoption-predicate
+            openoption-conf-test
+            set-openoption-conf-test
+            openoption-test
+            set-openoption-test
             openoption-single-char
             set-openoption-single-char
             openoption-terse
@@ -126,7 +128,7 @@
 ;;; (define-private-option version
 ;;;   "This application's version string"
 ;;;   #:value "1.0"
-;;;   #:predicate string?
+;;;   #:test string?
 ;;;   #:long "This string is the canonical representation of the
 ;;;   version of our application")
 ;;;
@@ -144,7 +146,7 @@
 ;;; (define-public-option version-flag
 ;;;   "Emit this application's version string."
 ;;;   #:value #f
-;;;   #:predicate boolean?
+;;;   #:test boolean?
 ;;;   #:single-char #\v
 ;;;   #:long "Provide more detail about the version option.")
 ;;;
@@ -165,7 +167,7 @@
 ;;; (define-open-option log-level
 ;;;  "Determines the verbosity of our log output."
 ;;;  #:value 3
-;;;  #:predicate integer?
+;;;  #:test integer?
 ;;;  #:single-char #\l
 ;;;  #:long "Set this level to 1 for silence, up to 5 for extreme
 ;;;  verbosity.")
@@ -239,24 +241,24 @@
 ;;; overridable by the end user, neither in configuration files, nor
 ;;; at the command line.
 (define-immutable-record-type <prioption>
-  (mecha-prioption name value predicate terse long)
+  (mecha-prioption name value test terse long)
   private-option?
   (name prioption-name set-prioption-name)
   (value prioption-value set-prioption-value)
-  (predicate prioption-predicate set-prioption-predicate)
+  (test prioption-test set-prioption-test)
   (terse prioption-terse set-prioption-terse)
   (long prioption-long set-prioption-long))
 
 (define* (define-private-option name terse #:key long
-           (value '<unset>) (predicate boolean?))
+           (value '<unset>) (test boolean?))
   "Return a Private Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
- - PREDICATE: the predicate to check this VALUE against."
+ - TEST: the predicate to check this VALUE against."
   (mecha-prioption (check-name name)
                    (check-value value)
-                   (check-predicate predicate)
+                   (check-test test)
                    (check-terse terse)
                    (check-long long)))
 
@@ -265,27 +267,27 @@ TERSE should be a < 40 char decsription.
 ;;; Public options are options that do not feature in configuration files, but
 ;;; which can be specified on the command line.
 (define-immutable-record-type <puboption>
-  (mecha-puboption name value predicate single-char terse long)
+  (mecha-puboption name value test single-char terse long)
   public-option?
   (name puboption-name set-puboption-name)
   (value puboption-value set-puboption-value)
-  (predicate puboption-predicate set-puboption-predicate)
+  (test puboption-test set-puboption-test)
   (single-char puboption-single-char set-puboption-single-char)
   (terse puboption-terse set-puboption-terse)
   (long puboption-long set-puboption-long))
 
 (define* (define-public-option name terse #:key long
-           (value '<unset>) single-char (predicate boolean?))
+           (value '<unset>) single-char (test boolean?))
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
  - SINGLE-CHAR: if set to a character, the single-char for the getopt-long
 spec assigned to this option.
- - PREDICATE: the predicate to check this VALUE against."
+ - TEST: the predicate to check this VALUE against."
   (mecha-puboption (check-name name)
                    (check-value value)
-                   (check-predicate predicate)
+                   (check-test test)
                    (check-single-char single-char)
                    (check-terse terse)
                    (check-long long)))
@@ -296,27 +298,32 @@ spec assigned to this option.
 ;;; overridden in configuration files, and which can be overriden at
 ;;; the CLI.
 (define-immutable-record-type <openoption>
-  (mecha-openoption name value predicate single-char terse long)
+  (mecha-openoption name value cli-test conf-test single-char terse long)
   open-option?
   (name openoption-name set-openoption-name)
   (value openoption-value set-openoption-value)
-  (predicate openoption-predicate set-openoption-predicate)
+  (cli-test openoption-cli-test set-openoption-cli-test)
+  (conf-test openoption-conf-test set-openoption-conf-test)
   (single-char openoption-single-char set-openoption-single-char)
   (terse openoption-terse set-openoption-terse)
   (long openoption-long set-openoption-long))
 
 (define* (define-open-option name terse #:key single-char
-           (value '<unset>) (predicate boolean?) long)
+           (value '<unset>) (cli-test boolean?) (conf-test boolean?) long)
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
  - SINGLE-CHAR: if set to a character, the single-char for the getopt-long
 spec assigned to this option.
- - PREDICATE: the predicate to check this VALUE against."
+ - CLI-TEST: the predicate to check this VALUE against, as a command-line
+parameter.
+ - CONF-TEST: the predicate to check this VALUE against, in configuration
+files."
   (mecha-openoption (check-name name)
                     (check-value value)
-                    (check-predicate predicate)
+                    (check-test cli-test)
+                    (check-test conf-test)
                     (check-single-char single-char)
                     (check-terse terse)
                     (check-long long)))
@@ -342,7 +349,7 @@ spec assigned to this option.
   (long   configuration-long   set-configuration-long))
 
 (define* (define-configuration name terse values #:key config-dir
-           long help? usage? version? (version-predicate? string?))
+           long help? usage? version? (version-test? string?))
   "Return a configuration.  NAME should be a symbol naming the configuration.
 TERSE is a < 40 char description; VALUES is a list of config-options.  The
 optional arguments:
@@ -354,13 +361,13 @@ generated.
  - VERSION?: if a value, add a private version-number option to VALUES,
 populated with the value for this option.  We will also create a public
 version option in VALUES.
- - VERSION-PREDICATE?: a procedure used to validate the version number value.
+ - VERSION-TEST?: a procedure used to validate the version number value.
 If omitted, this will default to `string?'."
   (define* (augment-if proc do? values)
     (match do?
       (#t (cons (proc) values))
       (#f values)
-      (_ (match (proc do? version-predicate?)
+      (_ (match (proc do? version-test?)
            ((vrsion vrsion-num) (cons* vrsion vrsion-num values))))))
 
   (mecha-configuration
@@ -394,11 +401,11 @@ If omitted, this will default to `string?'."
 
 ;;;;; Version
 
-(define* (complex-version vrsion predicate)
+(define* (complex-version vrsion test)
   "A special option convenience, returning a 2 element list consisting of a
 version option, and a version-number option created with VRSION and
-PREDICATE."
-  (list (version) (version-number vrsion #:predicate predicate)))
+TEST."
+  (list (version) (version-number vrsion #:test test)))
 
 (define* (version #:optional (terse "Emit version information, then exit."))
   "An option definition providing a configuration-spec version for the
@@ -408,16 +415,16 @@ compliant --version output."
     terse
     #:single-char #\V
     #:value #f
-    #:predicate boolean?))
+    #:test boolean?))
 
-(define* (version-number version #:key (predicate string?)
+(define* (version-number version #:key (test string?)
                          (terse "The version of our application."))
   "A procedure to define a hidden option containing the version of our
 application."
   (define-private-option 'version-number
     terse
     #:value version
-    #:predicate predicate))
+    #:test test))
 
 ;;;;; Help
 
@@ -428,7 +435,7 @@ help output."
     "Display a help message, then exit."
     #:single-char #\h
     #:value #f
-    #:predicate boolean?))
+    #:test boolean?))
 
 ;;;;; Usage
 
@@ -439,7 +446,7 @@ help output."
     "Display a help message, then exit."
     #:single-char #\u
     #:value #f
-    #:predicate boolean?))
+    #:test boolean?))
 
 
 ;;;; Configuration Spec parsing
@@ -460,15 +467,15 @@ apply."
     ((? private-option?) #f)
     ((? open-option?)  (openoption->getopt-spec option))))
 
-(define* (getopt-spec name predicate single-char #:optional required)
-  "Create a getopt-long spec entry from NAME, PREDICATE, SINGLE-CHAR and
+(define* (getopt-spec name test single-char #:optional required)
+  "Create a getopt-long spec entry from NAME, TEST, SINGLE-CHAR and
 REQUIRED."
   (define (value-entry)
-    (match (procedure-name predicate)
+    (match (procedure-name test)
       ('boolean? '((value #f)))
       (_         '((value #t)))))
 
-  (apply list name `(predicate ,predicate) `(required? ,required)
+  (apply list name `(predicate ,test) `(required? ,required)
          (match single-char
            ((? char?) (cons `(single-char ,single-char)
                            (value-entry)))
@@ -477,18 +484,18 @@ REQUIRED."
 (define (openoption->getopt-spec openoption)
   "Return the getopt-long option-spec for OPENOPTION."
   (match openoption
-    (($ <openoption> name '<unset> predicate single-char _ _)
-     (getopt-spec name predicate single-char #t))
-    (($ <openoption> name _ predicate single-char _ _)
-     (getopt-spec name predicate single-char))))
+    (($ <openoption> name '<unset> cli-test _ single-char _ _)
+     (getopt-spec name cli-test single-char #t))
+    (($ <openoption> name _ cli-test _ single-char _ _)
+     (getopt-spec name cli-test single-char))))
 
 (define (puboption->getopt-spec puboption)
   "Return the getopt-long option-spec for PUBOPTION."
   (match puboption
-    (($ <puboption> name '<unset> predicate single-char _ _)
-     (getopt-spec name predicate single-char #t))
-    (($ <puboption> name _ predicate single-char _ _)
-     (getopt-spec name predicate single-char))))
+    (($ <puboption> name '<unset> test single-char _ _)
+     (getopt-spec name test single-char #t))
+    (($ <puboption> name _ test single-char _ _)
+     (getopt-spec name test single-char))))
 
 
 ;;;; Validation
@@ -502,11 +509,11 @@ REQUIRED."
   (match value
     (_ value)))
 
-(define (check-predicate predicate)
-  (match predicate
-    ((? procedure?) predicate)
+(define (check-test test)
+  (match test
+    ((? procedure?) test)
     (_ (throw 'config-spec
-              "PREDICATE should be a predicate procedure."))))
+              "TEST should be a predicate procedure."))))
 
 (define (check-single-char char)
   (match char
