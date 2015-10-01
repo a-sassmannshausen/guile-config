@@ -1,0 +1,13 @@
+* Guile Config
+
+  Guile Config is a library providing a declarative approach to application
+  configuration specification.  The library provides clean configuration
+  declaration forms, and processors that take care of:
+
+  - Configuration file creation
+  - Configuration file parsing
+  - Command-line parameter parsing using getopt-long
+  - Basic GNU command-line parameter generation (--help, --usage, --version)
+  - Output generation for (compiled from the configuration declaration):
+    + --help and --usage 
+    + --version
