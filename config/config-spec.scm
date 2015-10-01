@@ -1,0 +1,536 @@
+;;; Config Spec --- Configuration specification in GNU Guile
+;;; Copyright © 2015 Alex Sassmannshausen <alex@pompo.co>
+;;;
+;;; This file is part of Config.
+;;;
+;;; Config is free software; you can redistribute it and/or modify it under
+;;; the terms of the GNU General Public License as published by the Free
+;;; Software Foundation; either version 3 of the License, or (at your option)
+;;; any later version.
+;;;
+;;; Config is distributed in the hope that it will be useful, but WITHOUT ANY
+;;; WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+;;; FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+;;; details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with glean; if not, contact:
+;;;
+;;; Free Software Foundation           Voice:  +1-617-542-5942
+;;; 59 Temple Place - Suite 330        Fax:    +1-617-542-2652
+;;; Boston, MA  02111-1307,  USA       gnu@gnu.org
+
+(define-module (config config-spec)
+  #:use-module (ice-9 match)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9)
+  #:use-module (srfi srfi-9 gnu)
+  #:use-module (srfi srfi-26)
+  #:export (
+            define-configuration
+            configuration->getopt-spec
+
+            <prioption>
+            private-option?
+            prioption-name
+            set-prioption-name
+            prioption-value
+            set-prioption-value
+            prioption-predicate
+            set-prioption-predicate
+            prioption-terse
+            set-prioption-terse
+            prioption-long
+            set-prioption-long
+            define-private-option
+
+            <puboption>
+            public-option?
+            puboption-name
+            set-puboption-name
+            puboption-value
+            set-puboption-value
+            puboption-predicate
+            set-puboption-predicate
+            puboption-single-char
+            set-puboption-single-char
+            puboption-terse
+            set-puboption-terse
+            puboption-long
+            set-puboption-long
+            define-public-option
+
+            <openoption>
+            open-option?
+            openoption-name
+            set-openoption-name
+            openoption-value
+            set-openoption-value
+            openoption-predicate
+            set-openoption-predicate
+            openoption-single-char
+            set-openoption-single-char
+            openoption-terse
+            set-openoption-terse
+            openoption-long
+            set-openoption-long
+            define-open-option
+
+            option?
+
+            <configuration>
+            configuration-name
+            set-configuration-name
+            configuration-dir
+            set-configuration-dir
+            configuration-values
+            set-configuration-values
+            configuration-terse
+            set-configuration-terse
+            configuration-long
+            set-configuration-long
+            define-configuration
+
+            complex-version
+            version
+            version-number
+            help
+            usage
+
+            configuration->getopt-spec
+            option->getopt-spec
+            ))
+
+;;; Commentary:
+;;;
+;;;; Introduction
+;;;
+;;; Configuration specs provide a means to declare an applications
+;;; configuration values.
+;;;
+;;; Those values are set privately (inside the application).
+;;;
+;;; Private values can be declared to be open — which means that they can be
+;;; overriden at run time using command line arguments.
+;;;
+;;; Open values can be declared to be public: this means that they can
+;;; also be overridden in configuration files.
+;;;
+;;;; Examples
+;;;
+;;;;; Private value
+;;;
+;;; An application generally declares a "version".  This version can
+;;; be specified using a private value.  They could specify this in
+;;; the following way:
+;;; (define-private-option version
+;;;   "This application's version string"
+;;;   #:value "1.0"
+;;;   #:predicate string?
+;;;   #:long "This string is the canonical representation of the
+;;;   version of our application")
+;;;
+;;; This specification compiles to an entry in the application's
+;;; config record providing a "private-configuration-object" — the
+;;; simplest configuration record, which just provides an interface to
+;;; documentation and querying of the value, and automatic testing of
+;;; the value when the configuration-record is created.
+;;;
+;;;;; Public value
+;;;
+;;; An application may want to implement the "--version" commandline
+;;; option.  We will refer to the version private option value, and by
+;;; default have this setting disabled.
+;;; (define-public-option version-flag
+;;;   "Emit this application's version string."
+;;;   #:value #f
+;;;   #:predicate boolean?
+;;;   #:single-char #\v
+;;;   #:long "Provide more detail about the version option.")
+;;;
+;;; This record compiles to an public-configuration-object.  In addition
+;;; to the private features, this object also provides a feature to
+;;; retrieve the getopt-long specification, allowing us to
+;;; programatically work with it.
+;;;
+;;;;; Open value
+;;;
+;;; An application may wish to provide a default setting, which can be
+;;; customized by the end-user in configuration files, as well as
+;;; being overridden at run-time using commandline flags.
+;;;
+;;; For instance we may wish to provide a default log-level of 3,
+;;; which the end-user can override in configuration files and each
+;;; run by commandline specification.
+;;; (define-open-option log-level
+;;;  "Determines the verbosity of our log output."
+;;;  #:value 3
+;;;  #:predicate integer?
+;;;  #:single-char #\l
+;;;  #:long "Set this level to 1 for silence, up to 5 for extreme
+;;;  verbosity.")
+;;;
+;;;  In this case we just need to guarantee that we:
+;;;  a) set the default
+;;;  b) parse the relevant configuration files to update the value
+;;;  c) parse the commandline for a final update.
+;;;  This procedure is guaranteed by the
+;;;  "open-option-configuration-object", generated from the above
+;;;  declaration.
+;;;
+;;;; Configurations
+;;;
+;;; Groups of options are collected in configurations.  A
+;;; configuration defines:
+;;; a) a (sub-)command name
+;;; [b) a path to the configuration file directory]
+;;; c) a list of option values and/or further configurations.
+;;; d) terse docstring
+;;; [e) long documentation string]
+;;;
+;;; The recursive nature of configurations allow us to specify
+;;; sub-commands for applications.
+;;;
+;;;;; Example
+;;;
+;;; A program `foo' exposes 'log-level' and 'dry-run' options.  In
+;;; addition it also exposes the `print' subcommand, which in turn
+;;; exposes 'style' and 'user' options.
+;;; An end user thus should be able to invoke:
+;;; $ foo --log-level=4 --dry-run print --style=pretty --user=frob
+;;;
+;;; The program should create a configuration object containing the
+;;; values for the parent (foo: log-level:4; dry-run:#t;) and then for
+;;; the sub-command (print: style:pretty; user:frob).
+;;;
+;;; This would be defined as follows:
+;;; (define-configuration "foo"
+;;;  "Base configuration for the 'foo' program."
+;;;  (list (define-configuration "bar"
+;;;         "Configuration for the 'bar' subcommand."
+;;;         #:config-dir "path/to/config/dir"
+;;;         (list (define-open-option "style" ...)
+;;;               (define-public-option "user" ...)))
+;;;        (define-public-option "log-level" ...)
+;;;        (define-public-option "dry-run" ...)))
+;;;
+;;; As the base configuration provides no open-options, it has no need
+;;; for a configuration file: the #:config-dir option can be ommitted.
+;;;
+;;;;;
+;;;
+;;; In addition we can provide the optional keyword arguments
+;;; '#:help', '#:version', '#:usage'.  These will automatically add
+;;; GNU compliant help, version and usage commandline parameters to
+;;; your application, and will allow you to extract IO-monadic
+;;; snippets which can emit GNU compliant messages to the end-user.
+;;;
+;;; The '#:version' keyword expects an integer as an argument.  The
+;;; two others simply expect #t/#f.
+;;;
+;;; Code:
+
+
+;;;; Options
+
+;;;;; Private Options
+;;;
+;;; Private options are specified in the program, but are not
+;;; overridable by the end user, neither in configuration files, nor
+;;; at the command line.
+(define-immutable-record-type <prioption>
+  (mecha-prioption name value predicate terse long)
+  private-option?
+  (name prioption-name set-prioption-name)
+  (value prioption-value set-prioption-value)
+  (predicate prioption-predicate set-prioption-predicate)
+  (terse prioption-terse set-prioption-terse)
+  (long prioption-long set-prioption-long))
+
+(define* (define-private-option name terse #:key long
+           (value '<unset>) (predicate boolean?))
+  "Return a Private Option.  NAME should be a symbol naming the option and
+TERSE should be a < 40 char decsription.
+ - LONG: space for a longer description.
+ - VALUE: the value assigned to this private option.
+ - PREDICATE: the predicate to check this VALUE against."
+  (mecha-prioption (check-name name)
+                   (check-value value)
+                   (check-predicate predicate)
+                   (check-terse terse)
+                   (check-long long)))
+
+;;;;; Public Options
+;;;
+;;; Public options are options that do not feature in configuration files, but
+;;; which can be specified on the command line.
+(define-immutable-record-type <puboption>
+  (mecha-puboption name value predicate single-char terse long)
+  public-option?
+  (name puboption-name set-puboption-name)
+  (value puboption-value set-puboption-value)
+  (predicate puboption-predicate set-puboption-predicate)
+  (single-char puboption-single-char set-puboption-single-char)
+  (terse puboption-terse set-puboption-terse)
+  (long puboption-long set-puboption-long))
+
+(define* (define-public-option name terse #:key long
+           (value '<unset>) single-char (predicate boolean?))
+  "Return a Public Option.  NAME should be a symbol naming the option and
+TERSE should be a < 40 char decsription.
+ - LONG: space for a longer description.
+ - VALUE: the value assigned to this private option.
+ - SINGLE-CHAR: if set to a character, the single-char for the getopt-long
+spec assigned to this option.
+ - PREDICATE: the predicate to check this VALUE against."
+  (mecha-puboption (check-name name)
+                   (check-value value)
+                   (check-predicate predicate)
+                   (check-single-char single-char)
+                   (check-terse terse)
+                   (check-long long)))
+
+;;;;; Open Options
+;;;
+;;; Open options are options that have default values, which can be
+;;; overridden in configuration files, and which can be overriden at
+;;; the CLI.
+(define-immutable-record-type <openoption>
+  (mecha-openoption name value predicate single-char terse long)
+  open-option?
+  (name openoption-name set-openoption-name)
+  (value openoption-value set-openoption-value)
+  (predicate openoption-predicate set-openoption-predicate)
+  (single-char openoption-single-char set-openoption-single-char)
+  (terse openoption-terse set-openoption-terse)
+  (long openoption-long set-openoption-long))
+
+(define* (define-open-option name terse #:key single-char
+           (value '<unset>) (predicate boolean?) long)
+  "Return a Public Option.  NAME should be a symbol naming the option and
+TERSE should be a < 40 char decsription.
+ - LONG: space for a longer description.
+ - VALUE: the value assigned to this private option.
+ - SINGLE-CHAR: if set to a character, the single-char for the getopt-long
+spec assigned to this option.
+ - PREDICATE: the predicate to check this VALUE against."
+  (mecha-openoption (check-name name)
+                    (check-value value)
+                    (check-predicate predicate)
+                    (check-single-char single-char)
+                    (check-terse terse)
+                    (check-long long)))
+
+;;;;; Generic Option Predicate
+
+(define (option? obj)
+  "Return #t if OBJ is an option; #f otherwise."
+  (match obj
+    ((or (? public-option?) (? private-option?) (? open-option?)) #t)
+    (_ #f)))
+
+
+;;;; Configuration
+
+(define-immutable-record-type <configuration>
+  (mecha-configuration name dir values terse long)
+  configuration?
+  (name   configuration-name   set-configuration-name)
+  (dir    configuration-dir    set-configuration-dir)
+  (values configuration-values set-configuration-values)
+  (terse  configuration-terse  set-configuration-terse)
+  (long   configuration-long   set-configuration-long))
+
+(define* (define-configuration name terse values #:key config-dir
+           long help? usage? version? (version-predicate? string?))
+  "Return a configuration.  NAME should be a symbol naming the configuration.
+TERSE is a < 40 char description; VALUES is a list of config-options.  The
+optional arguments:
+ - CONFIG-DIR: the directory in which a configuration file should be
+generated.
+ - LONG: a longer documentation string (mainly used in config files).
+ - HELP?: if #t, add a public help option to VALUES.
+ - USAGE?: if #t, add a public usage option to VALUES.
+ - VERSION?: if a value, add a private version-number option to VALUES,
+populated with the value for this option.  We will also create a public
+version option in VALUES.
+ - VERSION-PREDICATE?: a procedure used to validate the version number value.
+If omitted, this will default to `string?'."
+  (define* (augment-if proc do? values)
+    (match do?
+      (#t (cons (proc) values))
+      (#f values)
+      (_ (match (proc do? version-predicate?)
+           ((vrsion vrsion-num) (cons* vrsion vrsion-num values))))))
+
+  (mecha-configuration
+   (check-name name)
+   (match config-dir
+     ((and (? string?) (? absolute-file-name?)) config-dir)
+     (#f (match values
+           (((and (? option?) (? (negate open-option?))) ...) config-dir)
+           (_ (throw 'config-spec
+                    "If not CONFIG-DIR, then no openoptions are allowd."))))
+     ;; Else error value
+     (_ (throw 'config-spec "CONFIG-DIR should be an absolute filepath, or #f.")))
+   (match values
+     (((or (? option?) (? configuration?)) ...)
+      (augment-if complex-version version?
+                  (augment-if usage usage?
+                              (augment-if help help? values))))
+     ;; Else error value
+     (_ (throw 'config-spec
+               "VALUES should be a list of options and/or configurations.")))
+   (match terse
+     ;; FIXME: Also test whether shorter than max-length!
+     ((? string?) terse)
+     (_ (throw 'config-spec "TERSE should be a string.")))
+   (match long
+     ((or (? string?) #f) long)
+     (_ (throw 'config-spec "LONG should be a string, or #f.")))))
+
+
+;;;; Common Option Convenience
+
+;;;;; Version
+
+(define* (complex-version vrsion predicate)
+  "A special option convenience, returning a 2 element list consisting of a
+version option, and a version-number option created with VRSION and
+PREDICATE."
+  (list (version) (version-number vrsion #:predicate predicate)))
+
+(define* (version #:optional (terse "Emit version information, then exit."))
+  "An option definition providing a configuration-spec version for the
+program. Including this in a config spec will also generate GNU
+compliant --version output."
+  (define-public-option 'version
+    terse
+    #:single-char #\V
+    #:value #f
+    #:predicate boolean?))
+
+(define* (version-number version #:key (predicate string?)
+                         (terse "The version of our application."))
+  "A procedure to define a hidden option containing the version of our
+application."
+  (define-private-option 'version-number
+    terse
+    #:value version
+    #:predicate predicate))
+
+;;;;; Help
+
+(define (help)
+  "An option definition ensuring we have GNU coding standard compliant
+help output."
+  (define-public-option 'help
+    "Display a help message, then exit."
+    #:single-char #\h
+    #:value #f
+    #:predicate boolean?))
+
+;;;;; Usage
+
+(define (usage)
+  "An option definition ensuring we have GNU coding standard compliant
+help output."
+  (define-public-option 'usage
+    "Display a help message, then exit."
+    #:single-char #\u
+    #:value #f
+    #:predicate boolean?))
+
+
+;;;; Configuration Spec parsing
+
+;;;;; Option Parsing
+
+(define (configuration->getopt-spec config)
+  "Return the getopt-long option-spec corresponding to CONFIG.  Any private
+options will be ignored, as they have no getopt-long config (they have no
+commandline capability)."
+  (filter identity (map option->getopt-spec (configuration-values config))))
+
+(define (option->getopt-spec option)
+  "Return the getopt-long option-spec for OPTION, or #f if it does not
+apply."
+  (match option
+    ((? public-option?) (puboption->getopt-spec option))
+    ((? private-option?) #f)
+    ((? open-option?)  (openoption->getopt-spec option))))
+
+(define* (getopt-spec name predicate single-char #:optional required)
+  "Create a getopt-long spec entry from NAME, PREDICATE, SINGLE-CHAR and
+REQUIRED."
+  (define (value-entry)
+    (match (procedure-name predicate)
+      ('boolean? '((value #f)))
+      (_         '((value #t)))))
+
+  (apply list name `(predicate ,predicate) `(required? ,required)
+         (match single-char
+           ((? char?) (cons `(single-char ,single-char)
+                           (value-entry)))
+           (#f        (value-entry)))))
+
+(define (openoption->getopt-spec openoption)
+  "Return the getopt-long option-spec for OPENOPTION."
+  (match openoption
+    (($ <openoption> name '<unset> predicate single-char _ _)
+     (getopt-spec name predicate single-char #t))
+    (($ <openoption> name _ predicate single-char _ _)
+     (getopt-spec name predicate single-char))))
+
+(define (puboption->getopt-spec puboption)
+  "Return the getopt-long option-spec for PUBOPTION."
+  (match puboption
+    (($ <puboption> name '<unset> predicate single-char _ _)
+     (getopt-spec name predicate single-char #t))
+    (($ <puboption> name _ predicate single-char _ _)
+     (getopt-spec name predicate single-char))))
+
+
+;;;; Validation
+
+(define (check-name name)
+  (match name
+    ((? symbol?) name)
+    (_ (throw 'config-spec "NAME should be a symbol"))))
+
+(define (check-value value)
+  (match value
+    (_ value)))
+
+(define (check-predicate predicate)
+  (match predicate
+    ((? procedure?) predicate)
+    (_ (throw 'config-spec
+              "PREDICATE should be a predicate procedure."))))
+
+(define (check-single-char char)
+  (match char
+    ((or (? char?) #f) char)
+    (_ (throw 'config-spec
+              "SINGLE-CHAR should be a character or #f."))))
+
+(define (check-terse terse)
+  (match terse
+    ((and (? string?)
+          (? (compose (cut <= <> 40) string-length))) terse)
+    (_ (throw 'config-spec
+              "TERSE should be a string and less than 40 chars."))))
+
+(define (check-long long)
+  (match long
+    ((or (? string?) #f) long)
+    (_ (throw 'config-spec
+              "LONG should be a string."))))
+
+(define (check-cli cli)
+  (match cli
+    ((? boolean?) cli)
+    (_ (throw 'config-spec
+              "CLI should be a boolean."))))
+
+;;; config-spec.scm ends here.
