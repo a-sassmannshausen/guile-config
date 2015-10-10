@@ -28,7 +28,7 @@
   #:use-module (srfi srfi-26)
   #:export (
             define-configuration
-            configuration->getopt-spec
+            configuration-print
 
             <prioption>
             private-option?
@@ -98,9 +98,6 @@
             version-number
             help
             usage
-
-            configuration->getopt-spec
-            option->getopt-spec
             ))
 
 ;;; Commentary:
@@ -396,6 +393,21 @@ If omitted, this will default to `string?'."
      ((or (? string?) #f) long)
      (_ (throw 'config-spec "LONG should be a string, or #f.")))))
 
+(define (configuration-print configuration)
+  (match configuration
+    (($ <configuration> name dir values terse long)
+     (format #t "~a~%~a~%" name terse)
+     (when long (format #t "~%~a~%" long))
+     (when dir (format #t "~%Configuration Directory: ~a~%" dir))
+     (format #t "~%Values: ~%")
+     (match values
+       (((or ($ <prioption> name value)
+             ($ <openoption> name value)
+             ($ <puboption> name value)) ...)
+        (for-each (lambda (name value)
+                    (format #t "  ~a: ~a~%" name value))
+                  name value))))))
+
 
 ;;;; Common Option Convenience
 
@@ -447,55 +459,6 @@ help output."
     #:single-char #\u
     #:value #f
     #:test boolean?))
-
-
-;;;; Configuration Spec parsing
-
-;;;;; Option Parsing
-
-(define (configuration->getopt-spec config)
-  "Return the getopt-long option-spec corresponding to CONFIG.  Any private
-options will be ignored, as they have no getopt-long config (they have no
-commandline capability)."
-  (filter identity (map option->getopt-spec (configuration-values config))))
-
-(define (option->getopt-spec option)
-  "Return the getopt-long option-spec for OPTION, or #f if it does not
-apply."
-  (match option
-    ((? public-option?) (puboption->getopt-spec option))
-    ((? private-option?) #f)
-    ((? open-option?)  (openoption->getopt-spec option))))
-
-(define* (getopt-spec name test single-char #:optional required)
-  "Create a getopt-long spec entry from NAME, TEST, SINGLE-CHAR and
-REQUIRED."
-  (define (value-entry)
-    (match (procedure-name test)
-      ('boolean? '((value #f)))
-      (_         '((value #t)))))
-
-  (apply list name `(predicate ,test) `(required? ,required)
-         (match single-char
-           ((? char?) (cons `(single-char ,single-char)
-                           (value-entry)))
-           (#f        (value-entry)))))
-
-(define (openoption->getopt-spec openoption)
-  "Return the getopt-long option-spec for OPENOPTION."
-  (match openoption
-    (($ <openoption> name '<unset> cli-test _ single-char _ _)
-     (getopt-spec name cli-test single-char #t))
-    (($ <openoption> name _ cli-test _ single-char _ _)
-     (getopt-spec name cli-test single-char))))
-
-(define (puboption->getopt-spec puboption)
-  "Return the getopt-long option-spec for PUBOPTION."
-  (match puboption
-    (($ <puboption> name '<unset> test single-char _ _)
-     (getopt-spec name test single-char #t))
-    (($ <puboption> name _ test single-char _ _)
-     (getopt-spec name test single-char))))
 
 
 ;;;; Validation
