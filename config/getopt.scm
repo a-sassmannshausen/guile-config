@@ -55,16 +55,18 @@ in the getopt-long interface GETOPTS.  Otherwise that procedure will simply
 return the original configuration-value."
   (lambda (config-val)
     (match config-val
-      (($ <puboption> name)
-       (opt-if set-puboption-value (option-ref getopts name #f) config-val))
-      (($ <openoption> name)
-       (opt-if set-openoption-value (option-ref getopts name #f) config-val))
+      ((name . (? public-option? opt))
+       (cons name (opt-if set-puboption-value (option-ref getopts name #f) opt
+                          (puboption-handler opt))))
+      ((name . (? open-option? opt))
+       (cons name (opt-if set-openoption-value (option-ref getopts name #f)
+                          opt (openoption-cli-handler opt))))
       (_ config-val))))
 
-(define (opt-if setter getopt option)
-  "Return either a new configuration-value built with SETTER, OPTION and
-GETOPT, or just the original configuration-value OPTION."
-  (if getopt (setter option getopt) option))
+(define (opt-if setter cli-value option-name handler)
+  "Return either a new configuration-value built with SETTER, OPTION-NAME and
+CLI-VALUE, or just the original configuration-value OPTION-NAME."
+  (if cli-value (setter option-name (handler cli-value)) option-name))
 
 
 ;;;; Configuration Spec parsing
@@ -81,11 +83,11 @@ commandline capability)."
   "Return the getopt-long option-spec for OPTION, or #f if it does not
 apply."
   (match option
-    ((? public-option?) (puboption->getopt-spec option))
-    ((? private-option?) #f)
-    ((? open-option?)  (openoption->getopt-spec option))))
+    ((name . (? public-option? opt))  (puboption->getopt-spec opt))
+    ((name . (? private-option?)) #f)
+    ((name . (? open-option? opt))    (openoption->getopt-spec opt))))
 
-(define* (getopt-spec name test single-char #:optional required)
+(define* (getopt-spec name test handler single-char #:optional required)
   "Create a getopt-long spec entry from NAME, TEST, SINGLE-CHAR and
 REQUIRED."
   (define (value-entry)
@@ -93,7 +95,7 @@ REQUIRED."
       ('boolean? '((value #f)))
       (_         '((value #t)))))
 
-  (apply list name `(predicate ,test) `(required? ,required)
+  (apply list name `(predicate ,(compose test handler)) `(required? ,required)
          (match single-char
            ((? char?) (cons `(single-char ,single-char)
                            (value-entry)))
@@ -102,17 +104,17 @@ REQUIRED."
 (define (openoption->getopt-spec openoption)
   "Return the getopt-long option-spec for OPENOPTION."
   (match openoption
-    (($ <openoption> name '<unset> cli-test _ single-char _ _)
-     (getopt-spec name cli-test single-char #t))
-    (($ <openoption> name _ cli-test _ single-char _ _)
-     (getopt-spec name cli-test single-char))))
+    (($ <openoption> name '<unset> test cli-handler _ single-char _ _)
+     (getopt-spec name test cli-handler single-char #t))
+    (($ <openoption> name _ test cli-handler _ single-char _ _)
+     (getopt-spec name test cli-handler single-char))))
 
 (define (puboption->getopt-spec puboption)
   "Return the getopt-long option-spec for PUBOPTION."
   (match puboption
-    (($ <puboption> name '<unset> test single-char _ _)
-     (getopt-spec name test single-char #t))
-    (($ <puboption> name _ test single-char _ _)
-     (getopt-spec name test single-char))))
+    (($ <puboption> name '<unset> test handler single-char _ _)
+     (getopt-spec name test handler single-char #t))
+    (($ <puboption> name _ test handler single-char _ _)
+     (getopt-spec name test handler single-char))))
 
 ;;; getopt.scm ends here.

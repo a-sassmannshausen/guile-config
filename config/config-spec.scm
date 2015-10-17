@@ -52,6 +52,8 @@
             set-puboption-value
             puboption-test
             set-puboption-test
+            puboption-handler
+            set-puboption-handler
             puboption-single-char
             set-puboption-single-char
             puboption-terse
@@ -66,10 +68,12 @@
             set-openoption-name
             openoption-value
             set-openoption-value
-            openoption-conf-test
-            set-openoption-conf-test
             openoption-test
             set-openoption-test
+            openoption-cli-handler
+            set-openoption-cli-handler
+            openoption-conf-handler
+            set-openoption-conf-handler
             openoption-single-char
             set-openoption-single-char
             openoption-terse
@@ -264,27 +268,32 @@ TERSE should be a < 40 char decsription.
 ;;; Public options are options that do not feature in configuration files, but
 ;;; which can be specified on the command line.
 (define-immutable-record-type <puboption>
-  (mecha-puboption name value test single-char terse long)
+  (mecha-puboption name value test handler single-char terse long)
   public-option?
   (name puboption-name set-puboption-name)
   (value puboption-value set-puboption-value)
   (test puboption-test set-puboption-test)
+  (handler puboption-handler set-puboption-handler)
   (single-char puboption-single-char set-puboption-single-char)
   (terse puboption-terse set-puboption-terse)
   (long puboption-long set-puboption-long))
 
 (define* (define-public-option name terse #:key long
-           (value '<unset>) single-char (test boolean?))
+           (value '<unset>) single-char (test boolean?) (handler identity))
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
  - SINGLE-CHAR: if set to a character, the single-char for the getopt-long
 spec assigned to this option.
- - TEST: the predicate to check this VALUE against."
+ - TEST: the predicate to check this VALUE against.
+ - HANDLER: a procedure of one argument to apply to the string as provided
+from the commandline.  This should be a transformer from
+string->value-for-test."
   (mecha-puboption (check-name name)
                    (check-value value)
                    (check-test test)
+                   (check-handler handler)
                    (check-single-char single-char)
                    (check-terse terse)
                    (check-long long)))
@@ -295,32 +304,40 @@ spec assigned to this option.
 ;;; overridden in configuration files, and which can be overriden at
 ;;; the CLI.
 (define-immutable-record-type <openoption>
-  (mecha-openoption name value cli-test conf-test single-char terse long)
+  (mecha-openoption name value test cli-handler conf-handler single-char terse
+                    long)
   open-option?
   (name openoption-name set-openoption-name)
   (value openoption-value set-openoption-value)
-  (cli-test openoption-cli-test set-openoption-cli-test)
-  (conf-test openoption-conf-test set-openoption-conf-test)
+  (test openoption-test set-openoption-test)
+  (cli-handler openoption-cli-handler set-openoption-cli-handler)
+  (conf-handler openoption-conf-handler set-openoption-conf-handler)
   (single-char openoption-single-char set-openoption-single-char)
   (terse openoption-terse set-openoption-terse)
   (long openoption-long set-openoption-long))
 
 (define* (define-open-option name terse #:key single-char
-           (value '<unset>) (cli-test boolean?) (conf-test boolean?) long)
+           (value '<unset>) (test boolean?) (cli-handler identity)
+           (conf-handler identity) long)
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
  - SINGLE-CHAR: if set to a character, the single-char for the getopt-long
 spec assigned to this option.
- - CLI-TEST: the predicate to check this VALUE against, as a command-line
-parameter.
- - CONF-TEST: the predicate to check this VALUE against, in configuration
-files."
+ - TEST: the predicate to check this VALUE against, after applying the
+relevant handler.
+ - CLI-HANDLER: a procedure of one argument to apply to the string as provided
+from the commandline.  This should be a transformer from
+string->value-for-test.
+ - CONF-HANDLER: a procedure of one argument to apply to the value as read
+from the configuration file.  This should be a transformer from
+conf-value->value-for-test."
   (mecha-openoption (check-name name)
                     (check-value value)
-                    (check-test cli-test)
-                    (check-test conf-test)
+                    (check-test test)
+                    (check-handler cli-handler)
+                    (check-handler conf-handler)
                     (check-single-char single-char)
                     (check-terse terse)
                     (check-long long)))
@@ -379,9 +396,17 @@ If omitted, this will default to `string?'."
      (_ (throw 'config-spec "CONFIG-DIR should be an absolute filepath, or #f.")))
    (match values
      (((or (? option?) (? configuration?)) ...)
-      (augment-if complex-version version?
-                  (augment-if usage usage?
-                              (augment-if help help? values))))
+      (map (lambda (opt/conf)
+             "Turn OPT/CONF into a k/v pair where k is the name of opt/conf."
+             (match opt/conf
+               (($ <configuration> name) (cons name opt/conf))
+               (($ <prioption> name) (cons name opt/conf))
+               (($ <puboption> name) (cons name opt/conf))
+               (($ <openoption> name) (cons name opt/conf))
+               (_ (throw 'config-spec "Invalid value in configuration."))))
+           (augment-if complex-version version?
+                         (augment-if usage usage?
+                                     (augment-if help help? values)))))
      ;; Else error value
      (_ (throw 'config-spec
                "VALUES should be a list of options and/or configurations.")))
@@ -401,9 +426,9 @@ If omitted, this will default to `string?'."
      (when dir (format #t "~%Configuration Directory: ~a~%" dir))
      (format #t "~%Values: ~%")
      (match values
-       (((or ($ <prioption> name value)
-             ($ <openoption> name value)
-             ($ <puboption> name value)) ...)
+       (((or (name . ($ <prioption> name value))
+             (name . ($ <openoption> name value))
+             (name . ($ <puboption> name value))) ...)
         (for-each (lambda (name value)
                     (format #t "  ~a: ~a~%" name value))
                   name value))))))
@@ -477,6 +502,12 @@ help output."
     ((? procedure?) test)
     (_ (throw 'config-spec
               "TEST should be a predicate procedure."))))
+
+(define (check-handler handler)
+  (match handler
+    ((? procedure?) handler)
+    (_ (throw 'config-spec
+              "HANDLER should be a procedure."))))
 
 (define (check-single-char char)
   (match char
