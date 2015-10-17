@@ -21,7 +21,7 @@
 ;;; Boston, MA  02111-1307,  USA       gnu@gnu.org
 
 (define-module (config getopt)
-  #:use-module (config config-spec)
+  #:use-module (config spec)
   #:use-module (ice-9 getopt-long)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
