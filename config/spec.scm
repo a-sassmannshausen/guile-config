@@ -103,6 +103,8 @@
             version-number
             help
             usage
+            license->string
+            license?
             ))
 
 ;;; Commentary:
@@ -371,7 +373,8 @@ conf-value->value-for-test.
   (long   configuration-long   set-configuration-long))
 
 (define* (define-configuration name terse values #:key config-dir
-           long help? usage? version? (version-test? string?))
+           long help? usage? version? license copyright author
+           (version-test? string?))
   "Return a configuration.  NAME should be a symbol naming the configuration.
 TERSE is a < 40 char description; VALUES is a list of config-options.  The
 optional arguments:
@@ -380,18 +383,59 @@ generated.
  - LONG: a longer documentation string (mainly used in config files).
  - HELP?: if #t, add a public help option to VALUES.
  - USAGE?: if #t, add a public usage option to VALUES.
+ - LICENSE: a symbol or string defaulting to the symbol 'gplv3+.  If this is a
+string it will be the \"License:\" line in '--version' output.
+ - AUTHOR: a string naming the author of the project.
+ - COPYRIGHT: a list of years for which the copyright applies.
  - VERSION?: if a value, add a private version-number option to VALUES,
 populated with the value for this option.  We will also create a public
 version option in VALUES.
  - VERSION-TEST?: a procedure used to validate the version number value.
 If omitted, this will default to `string?'."
-  (define* (augment-if proc do? values)
+  ;; If we have been provided with convenience option values, we should
+  ;; augment our configuration-values before finally instantiating
+  ;; <configuration>.
+  (define (augment-if proc do? values)
     (match do?
       (#t (cons (proc) values))
       (#f values)
       (_ (match (proc do? version-test?)
            ((vrsion vrsion-num) (cons* vrsion vrsion-num values))))))
+  (define* (augment-values values #:optional next)
+    (define (version-augment values)
+      (list (if version?
+                (match (complex-version version? version-test?)
+                  ((vrsion vrsion-num)
+                   (cons* vrsion vrsion-num values))
+                  (_ (throw 'config-spec
+                            "This should really not have happened.")))
+                values)
+            license-augment))
+    (define (license-augment values)
+      (list (if license (license-maker license values) values)
+            copyright-augment))
+    (define (copyright-augment values)
+      (list (match copyright
+              (#f values)
+              (((? integer? years) ...) (cons (copyright-maker years) values))
+              (_ (throw 'config-spec
+                        "Invalid COPYRIGHT: should be a list of years.")))
+            author-augment))
+    (define (author-augment values)
+      (list (match author
+              (#f values)
+              ((? string?) (cons (author-maker author) values))
+              (_ (throw 'config-spec
+                        "Invalid AUTHOR: should be a string.")))
+            #t))
 
+    (match next
+      ((? procedure?) (apply augment-values (next values)))
+      (#f (apply augment-values (version-augment values)))
+      (#t values)))
+
+  ;; We generate a <configuration> record, but only if we pass our basic
+  ;; parsing of the values that were provided.
   (mecha-configuration
    (check-name name)
    (match config-dir
@@ -412,9 +456,9 @@ If omitted, this will default to `string?'."
                (($ <puboption> name) (cons name opt/conf))
                (($ <openoption> name) (cons name opt/conf))
                (_ (throw 'config-spec "Invalid value in configuration."))))
-           (augment-if complex-version version?
-                         (augment-if usage usage?
-                                     (augment-if help help? values)))))
+           ;; Generate full list of values
+           (augment-values (augment-if usage usage?
+                                       (augment-if help help? values)))))
      ;; Else error value
      (_ (throw 'config-spec
                "VALUES should be a list of options and/or configurations.")))
@@ -470,6 +514,67 @@ application."
     terse
     #:value version
     #:test test))
+
+;;;;; License
+
+(define-record-type <license>
+  (license id name url)
+  license?
+  (id license-id)
+  (name license-name)
+  (url license-url))
+
+(define (license-maker obj values)
+  "Analyse OBJ and return a <license> constructed from it."
+  (match obj
+    ('gplv3+ (cons (license-gplv3+) values))
+    ((? license?) (cons license values))
+    ((? string?) (cons (license-generic license) values))
+    (_ (throw 'license-maker
+              "Invalid LICENSE: should be 'gplv3+, a license object or a
+string naming a license."))))
+
+(define (license->string license)
+  "Turn <license> LICENSE into a string for summary and/or printing."
+  (match license
+    (($ <license> #f name #f)
+     (string-join `("License:" ,name) " "))
+    (($ <license> id name url)
+     (string-append "License " id ": " name " <" url ">"))
+    (_ (throw 'license->string "Unexpected LICENSE."))))
+
+(define (license-generic name)
+  "Generate a simple <license> out of NAME."
+  (define-private-option 'license
+    "The license of this project."
+    #:value (license #f name #f)
+    #:test license?))
+
+(define (license-gplv3+)
+  "Return a <license> representing the GPLv3+."
+  (define-private-option 'license
+    "The license of this project."
+    #:value (license "GPLv3+" "GNU GPL version 3 or later"
+                     "http://gnu.org/licenses/gpl.html")
+    #:test license?))
+
+;;;;; Copyright
+
+(define (copyright-maker years)
+  "Return a private option representing the YEARS of copyright for a project."
+  (define-private-option 'copyright
+    "The years for which we claim copyright."
+    #:value years
+    #:test (lambda (x) (match x (((? integer? years) ...) #t) (_ #f)))))
+
+;;;;; Author
+
+(define (author-maker author)
+  "Return a private option detailing the AUTHOR of this project."
+  (define-private-option 'author
+    "The author of this project."
+    #:value author
+    #:test string?))
 
 ;;;;; Help
 

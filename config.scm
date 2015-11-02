@@ -70,7 +70,8 @@
   #:export     (getopt-config
                 getmio-config
                 option-ref
-                make-help-emitter))
+                make-help-emitter
+                make-version-emitter))
 
 
 ;;;; Porcelain
@@ -118,6 +119,31 @@ procedure that would emit such a message."
     (((name . (or ($ <configuration>) (? option? opts))) ...)
      (throw 'config "CONFIGURATION in help is not yet supported."))
     (_ (throw 'config "CONFIG is invalid."))))
+
+(define (make-version-emitter config)
+  "Traverse config, building a GNU-style version message as we do so.  Return
+a procedure that would emit that message."
+  (lambda* (#:optional (port (current-output-port)))
+    (format port "~a~%~a~a~a~%"
+            (match (list (configuration-name config)
+                         (option-ref config 'version-number #f))
+              ((name #f) (symbol->string name))
+              ((name (? string? version))
+               (string-append (symbol->string name) " " version))
+              ((name (? number? version))
+               (string-append (symbol->string name) (number->string version))))
+            (match (map (cut option-ref config <> #f) '(copyright author))
+              ((or (#f _) (_ #f)) "")
+              ((years author)
+               (string-append "Copyright (C) "
+                              (string-join (map number->string years) ", ")
+                              " " author "\n")))
+            (match (option-ref config 'license #f)
+              ((? license? license)
+               (string-append (license->string license) "\n"))
+              (_ ""))
+            "This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.")))
 
 
 ;;;; Plumbing
