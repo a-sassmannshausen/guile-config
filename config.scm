@@ -68,7 +68,9 @@
   #:re-export  (define-configuration define-private-option
                  define-public-option define-open-option)
   #:export     (getopt-config
+                getopt-config-auto
                 getmio-config
+                getmio-config-auto
                 option-ref
                 make-help-emitter
                 make-version-emitter))
@@ -76,13 +78,53 @@
 
 ;;;; Porcelain
 
-(define (getopt-config args config)
-  (run-io (process-configuration config args)))
-
 (define (getmio-config args config)
+  "Return a monadic IO value, which, when evaluated, returns the
+<configuration> derived from merging CONFIG, ARGS and CONFIG's configuration
+files."
   (process-configuration config args))
 
-(define (option-ref configuration key default)
+(define (getmio-config-auto args config)
+  "Return a monadic IO value, which, when evaluated, returns the
+<configuration> derived from merging CONFIG, ARGS and CONFIG's configuration
+files.
+
+Prior to returning <configuration> check whether --help, --usage or --version
+was passed, and if it was, emit the appropriate messages before exiting."
+  (mlet* %io-monad
+      ((parsed (getmio-config args config)))
+    ((io-lift (lambda (port)
+                (when (or (option-ref parsed 'help)
+                          (option-ref parsed 'usage))
+                  (make-help-emitter parsed port)
+                  (exit 0))
+                (when (option-ref parsed 'version #f)
+                  (make-version-emitter parsed port)
+                  (exit 0))
+                parsed)
+              'output))))
+
+(define* (getopt-config args config #:key (input-port (current-input-port))
+                       (output-port (current-output-port))
+                       (error-port (current-error-port)))
+  "Return the <configuration> derived from merging CONFIG, ARGS and CONFIG's
+configuration files."
+  (run-io (getmio-config args config) input-port output-port error-port))
+
+(define* (getopt-config-auto args config #:key
+                             (input-port (current-input-port))
+                             (output-port (current-output-port))
+                             (error-port (current-error-port)))
+  "Return the <configuration> derived from merging CONFIG, ARGS and CONFIG's
+configuration files.
+
+Prior to returning <configuration> check whether --help, --usage or --version
+was passed, and if it was, emit the appropriate messages before exiting."
+  (run-io (getmio-config-auto args config) input-port output-port error-port))
+
+(define* (option-ref configuration key #:optional default)
+  "Return the value for KEY in CONFIGURATION, or DEFAULT if it cannot be
+found."
   ;; Not implemented the special key '() which should return all non-option
   ;; arguments (see (ice-9 getopt-long option-ref) for details).
   (match configuration
@@ -94,56 +136,54 @@
                   (($ <prioption> n v) v)
                   (($ <openoption> n v) v)))))))
 
-(define (make-help-emitter config)
-  "Traverse config, building a GNU-style help message as we do so.  Return a
-procedure that would emit such a message."
+(define* (make-help-emitter config #:optional port)
+  "Traverse CONFIG, building a GNU-style help message as we do so and emit it
+to PORT."
   (match (configuration-values config)
     (((names . (? option? opts)) ...)
-     (lambda* (#:optional (port (current-output-port)))
-       ;; Short Help
-       (format port "Usage: ~a ~a~%"
-               (symbol->string (configuration-name config))
-               (sort-opts (filter (negate private-option?) opts)
-                          (+ (string-length "Usage: ")
-                             (string-length (symbol->string
-                                             (configuration-name config)))
-                             1)))
-       ;; Detailed Help
-       (format port "~%Options:~%~a~%"
-               (sort-detailed-opts (filter (negate private-option?) opts)))
-       ;; Synopsis
-       (if (configuration-long config)
-           (format port "~%~a~%"
-                   (fill-paragraph (configuration-long config) 80)))))
+     ;; Short Help
+     (format port "Usage: ~a ~a~%"
+             (symbol->string (configuration-name config))
+             (sort-opts (filter (negate private-option?) opts)
+                        (+ (string-length "Usage: ")
+                           (string-length (symbol->string
+                                           (configuration-name config)))
+                           1)))
+     ;; Detailed Help
+     (format port "~%Options:~%~a~%"
+             (sort-detailed-opts (filter (negate private-option?) opts)))
+     ;; Synopsis
+     (if (configuration-long config)
+         (format port "~%~a~%"
+                 (fill-paragraph (configuration-long config) 80))))
 
     (((name . (or ($ <configuration>) (? option? opts))) ...)
      (throw 'config "CONFIGURATION in help is not yet supported."))
     (_ (throw 'config "CONFIG is invalid."))))
 
-(define (make-version-emitter config)
-  "Traverse config, building a GNU-style version message as we do so.  Return
-a procedure that would emit that message."
-  (lambda* (#:optional (port (current-output-port)))
-    (format port "~a~%~a~a~a~%"
-            (match (list (configuration-name config)
-                         (option-ref config 'version-number #f))
-              ((name #f) (symbol->string name))
-              ((name (? string? version))
-               (string-append (symbol->string name) " " version))
-              ((name (? number? version))
-               (string-append (symbol->string name) (number->string version))))
-            (match (map (cut option-ref config <> #f) '(copyright author))
-              ((or (#f _) (_ #f)) "")
-              ((years author)
-               (string-append "Copyright (C) "
-                              (string-join (map number->string years) ", ")
-                              " " author "\n")))
-            (match (option-ref config 'license #f)
-              ((? license? license)
-               (string-append (license->string license) "\n"))
-              (_ ""))
-            "This is free software: you are free to change and redistribute it.
-There is NO WARRANTY, to the extent permitted by law.")))
+(define* (make-version-emitter config #:optional port)
+  "Traverse CONFIG, building a GNU-style version message as we do so and emit
+it to PORT."
+  (format port "~a~%~a~a~a~%"
+          (match (list (configuration-name config)
+                       (option-ref config 'version-number #f))
+            ((name #f) (symbol->string name))
+            ((name (? string? version))
+             (string-append (symbol->string name) " " version))
+            ((name (? number? version))
+             (string-append (symbol->string name) (number->string version))))
+          (match (map (cut option-ref config <> #f) '(copyright author))
+            ((or (#f _) (_ #f)) "")
+            ((years author)
+             (string-append "Copyright (C) "
+                            (string-join (map number->string years) ", ")
+                            " " author "\n")))
+          (match (option-ref config 'license #f)
+            ((? license? license)
+             (string-append (license->string license) "\n"))
+            (_ ""))
+          "This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law."))
 
 
 ;;;; Plumbing
