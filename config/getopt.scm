@@ -61,6 +61,10 @@ return the original configuration-value."
       ((name . (? open-option? opt))
        (cons name (opt-if set-openoption-value (option-ref getopts name #f)
                           opt (openoption-cli-handler opt))))
+      ;; Handle list of args that are not options or option-values
+      (('the-empty-prioption . (? private-option? opt))
+       (cons 'the-empty-prioption
+             (set-prioption-value opt (option-ref getopts '() '()))))
       (_ config-val))))
 
 (define (opt-if setter cli-value option-name handler)

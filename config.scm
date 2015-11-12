@@ -140,11 +140,9 @@ was passed, and if it was, emit the appropriate messages before exiting."
 (define* (option-ref configuration key #:optional default)
   "Return the value for KEY in CONFIGURATION, or DEFAULT if it cannot be
 found."
-  ;; Not implemented the special key '() which should return all non-option
-  ;; arguments (see (ice-9 getopt-long option-ref) for details).
   (match configuration
     (($ <configuration> _ _ values _ _)
-     (match (assq key values)
+     (match (assq (if (null? key) 'the-empty-prioption key) values)
        (#f default)
        ((k . v) (match v
                   (($ <puboption> n v) v)
@@ -288,8 +286,14 @@ SIMPLE-PARSER."
                (($ <openoption> name) (cons name opt/conf))
                (_ (throw 'config-spec "Invalid value in configuration."))))
            ;; Generate full list of values
-           (augment-values (augment-if usage usage?
-                                       (augment-if help help? values)))))
+           ;; Starting with the special option for non-opts or opt-values
+           (cons (define-private-option 'the-empty-prioption
+                   "Special empty list private property."
+                   #:value '()
+                   #:test list?)
+                 (augment-values
+                  (augment-if usage usage?
+                              (augment-if help help? values))))))
      ;; Else error value
      (_ (throw 'config-spec
                "VALUES should be a list of options and/or configurations.")))
