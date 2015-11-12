@@ -27,7 +27,6 @@
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
   #:export (
-            define-configuration
             configuration-print
 
             <prioption>
@@ -85,6 +84,7 @@
             option?
 
             <configuration>
+            mecha-configuration
             configuration?
             configuration-name
             set-configuration-name
@@ -96,13 +96,22 @@
             set-configuration-terse
             configuration-long
             set-configuration-long
-            define-configuration
+            configuration-parser
+            set-configuration-parser
+
+            configuration-file
+            configuration-write
+            configuration-read
 
             complex-version
             version
             version-number
             help
             usage
+            author-maker
+            check-name
+            copyright-maker
+            license-maker
             license->string
             license?
             ))
@@ -364,111 +373,14 @@ conf-value->value-for-test.
 ;;;; Configuration
 
 (define-immutable-record-type <configuration>
-  (mecha-configuration name dir values terse long)
+  (mecha-configuration name dir values terse long parser)
   configuration?
   (name   configuration-name   set-configuration-name)
   (dir    configuration-dir    set-configuration-dir)
   (values configuration-values set-configuration-values)
   (terse  configuration-terse  set-configuration-terse)
-  (long   configuration-long   set-configuration-long))
-
-(define* (define-configuration name terse values #:key config-dir
-           long help? usage? version? license copyright author
-           (version-test? string?))
-  "Return a configuration.  NAME should be a symbol naming the configuration.
-TERSE is a < 40 char description; VALUES is a list of config-options.  The
-optional arguments:
- - CONFIG-DIR: the directory in which a configuration file should be
-generated.
- - LONG: a longer documentation string (mainly used in config files).
- - HELP?: if #t, add a public help option to VALUES.
- - USAGE?: if #t, add a public usage option to VALUES.
- - LICENSE: a symbol or string defaulting to the symbol 'gplv3+.  If this is a
-string it will be the \"License:\" line in '--version' output.
- - AUTHOR: a string naming the author of the project.
- - COPYRIGHT: a list of years for which the copyright applies.
- - VERSION?: if a value, add a private version-number option to VALUES,
-populated with the value for this option.  We will also create a public
-version option in VALUES.
- - VERSION-TEST?: a procedure used to validate the version number value.
-If omitted, this will default to `string?'."
-  ;; If we have been provided with convenience option values, we should
-  ;; augment our configuration-values before finally instantiating
-  ;; <configuration>.
-  (define (augment-if proc do? values)
-    (match do?
-      (#t (cons (proc) values))
-      (#f values)
-      (_ (match (proc do? version-test?)
-           ((vrsion vrsion-num) (cons* vrsion vrsion-num values))))))
-  (define* (augment-values values #:optional next)
-    (define (version-augment values)
-      (list (if version?
-                (match (complex-version version? version-test?)
-                  ((vrsion vrsion-num)
-                   (cons* vrsion vrsion-num values))
-                  (_ (throw 'config-spec
-                            "This should really not have happened.")))
-                values)
-            license-augment))
-    (define (license-augment values)
-      (list (if license (license-maker license values) values)
-            copyright-augment))
-    (define (copyright-augment values)
-      (list (match copyright
-              (#f values)
-              (((? integer? years) ...) (cons (copyright-maker years) values))
-              (_ (throw 'config-spec
-                        "Invalid COPYRIGHT: should be a list of years.")))
-            author-augment))
-    (define (author-augment values)
-      (list (match author
-              (#f values)
-              ((? string?) (cons (author-maker author) values))
-              (_ (throw 'config-spec
-                        "Invalid AUTHOR: should be a string.")))
-            #t))
-
-    (match next
-      ((? procedure?) (apply augment-values (next values)))
-      (#f (apply augment-values (version-augment values)))
-      (#t values)))
-
-  ;; We generate a <configuration> record, but only if we pass our basic
-  ;; parsing of the values that were provided.
-  (mecha-configuration
-   (check-name name)
-   (match config-dir
-     ((and (? string?) (? absolute-file-name?)) config-dir)
-     (#f (match values
-           (((and (? option?) (? (negate open-option?))) ...) config-dir)
-           (_ (throw 'config-spec
-                    "If not CONFIG-DIR, then no openoptions are allowd."))))
-     ;; Else error value
-     (_ (throw 'config-spec "CONFIG-DIR should be an absolute filepath, or #f.")))
-   (match values
-     (((or (? option?) (? configuration?)) ...)
-      (map (lambda (opt/conf)
-             "Turn OPT/CONF into a k/v pair where k is the name of opt/conf."
-             (match opt/conf
-               (($ <configuration> name) (cons name opt/conf))
-               (($ <prioption> name) (cons name opt/conf))
-               (($ <puboption> name) (cons name opt/conf))
-               (($ <openoption> name) (cons name opt/conf))
-               (_ (throw 'config-spec "Invalid value in configuration."))))
-           ;; Generate full list of values
-           (augment-values (augment-if usage usage?
-                                       (augment-if help help? values)))))
-     ;; Else error value
-     (_ (throw 'config-spec
-               "VALUES should be a list of options and/or configurations.")))
-   (match terse
-     ;; FIXME: Also test whether shorter than max-length!
-     ((? string?) terse)
-     (_ (throw 'config-spec "TERSE should be a string.")))
-   (match long
-     ((or (? string?) #f) long)
-     (_ (throw 'config-spec "LONG should be a string, or #f.")))))
+  (long   configuration-long   set-configuration-long)
+  (parser configuration-parser set-configuration-parser))
 
 (define (configuration-print configuration)
   (match configuration
@@ -484,6 +396,12 @@ If omitted, this will default to `string?'."
         (for-each (lambda (name value)
                     (format #t "  ~a: ~a~%" name value))
                   name value))))))
+
+(define (configuration-file configuration)
+  "Return the full filename of the CONFIGURATION file we want to use."
+  (string-append (configuration-dir configuration)
+                 file-name-separator-string
+                 (symbol->string (configuration-name configuration))))
 
 
 ;;;; Common Option Convenience

@@ -56,6 +56,7 @@
 
 (define-module (config)
   #:use-module (config getopt)
+  #:use-module (config parser)
   #:use-module (config spec)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
@@ -65,24 +66,38 @@
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
-  #:re-export  (define-configuration define-private-option
-                 define-public-option define-open-option)
-  #:export     (getopt-config
+  #:re-export  (define-private-option define-public-option define-open-option
+                 configuration-parser configuration-print)
+  #:export     (
+                getopt-config
                 getopt-config-auto
                 getmio-config
                 getmio-config-auto
                 option-ref
                 make-help-emitter
-                make-version-emitter))
+                make-version-emitter
+                define-configuration
+                ))
 
 
 ;;;; Porcelain
 
-(define (getmio-config args config)
+(define (getmio-config args configuration)
   "Return a monadic IO value, which, when evaluated, returns the
-<configuration> derived from merging CONFIG, ARGS and CONFIG's configuration
-files."
-  (process-configuration config args))
+<configuration> derived from merging CONFIGURATION, ARGS and CONFIGURATION's
+configuration files."
+  (mlet* %io-monad
+      ;; Remember, we may have nested configurations!
+      (;; first create getopt-long
+       ;; then check '() of getopt-long for recursive configurations
+       ;; if present, merge each wich is present
+       ;; if not, proceed as below.
+       ;; ----
+       ;; will need to be lifted when implementing above!
+       (ignore (ensure-config-files configuration))
+       (merged-config (merge-config-file-values configuration)))
+    ;; derive/merge-config-getopt is non-monadic!
+    (return (derive/merge-config-getopt merged-config args))))
 
 (define (getmio-config-auto args config)
   "Return a monadic IO value, which, when evaluated, returns the
@@ -92,17 +107,17 @@ files.
 Prior to returning <configuration> check whether --help, --usage or --version
 was passed, and if it was, emit the appropriate messages before exiting."
   (mlet* %io-monad
-      ((parsed (getmio-config args config)))
-    ((io-lift (lambda (port)
+      ((parsed (getmio-config args config))
+       (emit   ((io-lift (lambda (port)
                 (when (or (option-ref parsed 'help)
                           (option-ref parsed 'usage))
                   (make-help-emitter parsed port)
                   (exit 0))
                 (when (option-ref parsed 'version #f)
                   (make-version-emitter parsed port)
-                  (exit 0))
-                parsed)
+                  (exit 0)))
               'output))))
+    (return parsed)))
 
 (define* (getopt-config args config #:key (input-port (current-input-port))
                        (output-port (current-output-port))
@@ -185,90 +200,137 @@ it to PORT."
           "This is free software: you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law."))
 
+(define* (define-configuration name terse values #:key config-dir
+           long help? usage? version? license copyright author
+           (version-test? string?) (parser simple-parser))
+  "Return a configuration.  NAME should be a symbol naming the configuration.
+TERSE is a < 40 char description; VALUES is a list of config-options.  The
+optional arguments:
+ - CONFIG-DIR: the directory in which a configuration file should be
+generated.
+ - LONG: a longer documentation string (mainly used in config files).
+ - HELP?: if #t, add a public help option to VALUES.
+ - USAGE?: if #t, add a public usage option to VALUES.
+ - LICENSE: a symbol or string defaulting to the symbol 'gplv3+.  If this is a
+string it will be the \"License:\" line in '--version' output.
+ - AUTHOR: a string naming the author of the project.
+ - COPYRIGHT: a list of years for which the copyright applies.
+ - VERSION?: if a value, add a private version-number option to VALUES,
+populated with the value for this option.  We will also create a public
+version option in VALUES.
+ - VERSION-TEST?: a procedure used to validate the version number value.
+If omitted, this will default to `string?'.
+ - PARSER: the configuration file parser we will use to write and read the
+configuration file associated with this configuration.  It defaults to
+SIMPLE-PARSER."
+  ;; If we have been provided with convenience option values, we should
+  ;; augment our configuration-values before finally instantiating
+  ;; <configuration>.
+  (define (augment-if proc do? values)
+    (match do?
+      (#t (cons (proc) values))
+      (#f values)
+      (_ (match (proc do? version-test?)
+           ((vrsion vrsion-num) (cons* vrsion vrsion-num values))))))
+  (define* (augment-values values #:optional next)
+    (define (version-augment values)
+      (list (if version?
+                (match (complex-version version? version-test?)
+                  ((vrsion vrsion-num)
+                   (cons* vrsion vrsion-num values))
+                  (_ (throw 'config-spec
+                            "This should really not have happened.")))
+                values)
+            license-augment))
+    (define (license-augment values)
+      (list (if license (license-maker license values) values)
+            copyright-augment))
+    (define (copyright-augment values)
+      (list (match copyright
+              (#f values)
+              (((? integer? years) ...) (cons (copyright-maker years) values))
+              (_ (throw 'config-spec
+                        "Invalid COPYRIGHT: should be a list of years.")))
+            author-augment))
+    (define (author-augment values)
+      (list (match author
+              (#f values)
+              ((? string?) (cons (author-maker author) values))
+              (_ (throw 'config-spec
+                        "Invalid AUTHOR: should be a string.")))
+            #t))
+
+    (match next
+      ((? procedure?) (apply augment-values (next values)))
+      (#f (apply augment-values (version-augment values)))
+      (#t values)))
+
+  ;; We generate a <configuration> record, but only if we pass our basic
+  ;; parsing of the values that were provided.
+  (mecha-configuration
+   (check-name name)
+   (match config-dir
+     ((and (? string?) (? absolute-file-name?)) config-dir)
+     (#f (match values
+           (((and (? option?) (? (negate open-option?))) ...) config-dir)
+           (_ (throw 'config-spec
+                    "If not CONFIG-DIR, then no openoptions are allowd."))))
+     ;; Else error value
+     (_ (throw 'config-spec "CONFIG-DIR should be an absolute filepath, or #f.")))
+   (match values
+     (((or (? option?) (? configuration?)) ...)
+      (map (lambda (opt/conf)
+             "Turn OPT/CONF into a k/v pair where k is the name of opt/conf."
+             (match opt/conf
+               (($ <configuration> name) (cons name opt/conf))
+               (($ <prioption> name) (cons name opt/conf))
+               (($ <puboption> name) (cons name opt/conf))
+               (($ <openoption> name) (cons name opt/conf))
+               (_ (throw 'config-spec "Invalid value in configuration."))))
+           ;; Generate full list of values
+           (augment-values (augment-if usage usage?
+                                       (augment-if help help? values)))))
+     ;; Else error value
+     (_ (throw 'config-spec
+               "VALUES should be a list of options and/or configurations.")))
+   (match terse
+     ;; FIXME: Also test whether shorter than max-length!
+     ((? string?) terse)
+     (_ (throw 'config-spec "TERSE should be a string.")))
+   (match long
+     ((or (? string?) #f) long)
+     (_ (throw 'config-spec "LONG should be a string, or #f.")))
+   (match parser
+     ((? configuration-parser?) parser)
+     (_ (throw 'config-spec "PARSER should be a configuration parser.")))))
+
 
 ;;;; Plumbing
 
-(define (process-configuration configuration cli-params)
-  (mlet* %io-monad
-      ;; Remember, we may have nested configurations!
-      (;; Hence recurse at every monadic proc through the whole of config.
-       (null          ((lift ensure-config-files %io-monad) configuration))
-       (merged-config ((lift merge-config-file-values %io-monad)
-                       configuration)))
-    (return (merge-config-cli-values merged-config cli-params))))
-
-;; merge-config-cli-values is simple io based: it is functional, in an
-;; io-monad wrapper.
-(define (merge-config-cli-values configuration cli-params)
-  (derive/merge-config-getopt configuration cli-params))
-
-;; The values are read from configuration files, specified in configuration,
-;; and modifying configuration.
 ;; => io read -> configuration.
 (define (merge-config-file-values configuration)
-  configuration)
+  "Return a version of CONFIGURATION which has been augmented by the
+configuration values from its configuration file."
+  (mlet* %io-monad
+      ((old-io (set-io-input-file (configuration-file configuration)))
+       (config (configuration-read configuration))
+       (ignore (io-close-input-port old-io)))
+    (return config)))
 
-;; We check the configuration file paths from CONFIGURATION, and as output
-;; side-effects, create those files if they do not yet exist, populated with
-;; values from CONFIGURATION.
+;; => io write -> '()
 (define (ensure-config-files configuration)
-  configuration)
-
-;; Then we should export the high-level bindings to:
-;;   + extract documentation for configuration
-;;   + extract full configuration specification in readible way
+  "Check if CONFIGURATION's config-file exists, and create it if it doesn't.
+Return values is unspecified in the io-monad."
+  (if (not (file-exists? (configuration-file configuration)))
+      (mlet* %io-monad
+          ((ignore  (iomkdir-p (configuration-dir configuration)))
+           (old-out (set-io-output-file (configuration-file configuration)))
+           (ignore  (configuration-write configuration)))
+        (io-close-output-port old-out))
+      (with-monad %io-monad (return '()))))
 
 
 ;;;; Helpers
-
-(define* (fill-paragraph str width #:optional (column 0))
-  "Fill STR such that each line contains at most WIDTH characters, assuming
-that the first character is at COLUMN.
-
-When STR contains a single line break surrounded by other characters, it is
-converted to a space; sequences of more than one line break are preserved."
-  (define (maybe-break chr result)
-    (match result
-      ((column newlines chars)
-       (case chr
-         ((#\newline)
-          `(,column ,(+ 1 newlines) ,chars))
-         (else
-          (let* ((spaces (if (and (pair? chars) (eqv? (car chars) #\.)) 2 1))
-                 (chars  (case newlines
-                           ((0) chars)
-                           ((1)
-                            (append (make-list spaces #\space) chars))
-                           (else
-                            (append (make-list newlines #\newline) chars))))
-                 (column (case newlines
-                           ((0) column)
-                           ((1) (+ spaces column))
-                           (else 0))))
-            (let ((chars  (cons chr chars))
-                  (column (+ 1 column)))
-              (if (> column width)
-                  (let*-values (((before after)
-                                 (break (cut eqv? #\space <>) chars))
-                                ((len)
-                                 (length before)))
-                    (if (<= len width)
-                        `(,len
-                          0
-                          ,(if (null? after)
-                               before
-                               (append before
-                                       (cons #\newline
-                                             (drop-while (cut eqv? #\space <>)
-                                                         after)))))
-                        `(,column 0 ,chars)))     ; unbreakable
-                  `(,column 0 ,chars)))))))))
-
-  (match (string-fold maybe-break
-                      `(,column 0 ())
-                      str)
-    ((_ _ chars)
-     (list->string (reverse chars)))))
 
 (define (sort-detailed-opts opts)
   ;; Long options should be:
@@ -372,5 +434,21 @@ converted to a space; sequences of more than one line break are preserved."
                   '(() () () ())
                   opts)))
    (string-append "\n" (whitespace))))
+
+(define configuration-write
+  (io-lift
+   (lambda (configuration output-port)
+     "Output is unspecified. Write CONFIGURATION to OUTPUT-PORT."
+     ((configuration-parser-writer
+       (configuration-parser configuration)) configuration output-port))
+   'output))
+
+(define configuration-read
+  (io-lift
+   (lambda (configuration input-port)
+     "Output is a merged configuration.  Merge configuration from INPUT-PORT."
+     ((configuration-parser-reader
+       (configuration-parser configuration)) configuration input-port))
+   'input))
 
 ;;; config ends here
