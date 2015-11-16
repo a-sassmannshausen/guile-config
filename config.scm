@@ -325,13 +325,28 @@ configuration values from its configuration file."
 (define (ensure-config-files configuration)
   "Check if CONFIGURATION's config-file exists, and create it if it doesn't.
 Return values is unspecified in the io-monad."
-  (if (not (file-exists? (configuration-file configuration)))
-      (mlet* %io-monad
-          ((ignore  (iomkdir-p (configuration-dir configuration)))
-           (old-out (set-io-output-file (configuration-file configuration)))
-           (ignore  (configuration-write configuration)))
-        (io-close-output-port old-out))
-      (with-monad %io-monad (return '()))))
+  (define (ensure config)
+    (if (not (file-exists? (configuration-file config)))
+        (mlet* %io-monad
+            ((ignore  (iomkdir-p (configuration-dir config)))
+             (old-out (set-io-output-file (configuration-file config)))
+             (ignore  (configuration-write config)))
+          (io-close-output-port old-out))
+        (with-monad %io-monad (return '()))))
+  (define (recurse values)
+    (match values
+      (() (with-monad %io-monad (return '())))
+      (((name . (? configuration? config)) . rest)
+       ;; create config, then recurse with (configuration-values config) + rest
+       (mlet* %io-monad
+           ((ignore (ensure config))
+            (ignore (recurse (configuration-values config))))
+         (recurse rest)))
+      ((option . rest) (recurse rest))))
+
+  (mlet* %io-monad
+      ((ignore (ensure configuration)))
+    (recurse (configuration-values configuration))))
 
 
 ;;;; Helpers
