@@ -28,17 +28,36 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:export     (derive/merge-config-getopt
+                establish-subcommands
                 configuration->getopt-spec))
 
 ;;;; Configuration/Getopt Merging
+(define (config->getopt-long config cli-params)
+  ;; We should memoize this.
+  (getopt-long cli-params (configuration->getopt-spec config)))
+
+(define (establish-subcommands configuration cli-params)
+  (let establish ((free-params (option-ref (config->getopt-long configuration
+                                                                cli-params)
+                                           '() '()))
+                  (subcommands '())
+                  (config-values (configuration-values configuration)))
+    (match free-params
+      (((? string? candidate) . rest)
+       (match (assq (string->symbol candidate) config-values)
+         ((k . ($ <configuration> _ _ values _ _))
+          (establish rest (cons (string->symbol candidate) subcommands)
+                     values))
+         ;; Could be #f or an <option>
+         (_ (reverse subcommands))))
+      ;; We have no free params (i.e. no subcommand specified).
+      (() (reverse subcommands)))))
 
 (define (derive/merge-config-getopt config cli-params)
   "Return the <configuration> resulting from merging the list CLI-PARAMS
 (normally the list of commandline arguments to a program) into <configuration>
 CONFIG."
-  (merge-config-getopt config
-                       (getopt-long cli-params
-                                    (configuration->getopt-spec config))))
+  (merge-config-getopt config (config->getopt-long config cli-params)))
 
 (define (merge-config-getopt config getopts)
   "Return the <configuration> resulting from merging the getopt-long interface
@@ -89,7 +108,8 @@ apply."
   (match option
     ((name . (? public-option? opt))  (puboption->getopt-spec opt))
     ((name . (? private-option?)) #f)
-    ((name . (? open-option? opt))    (openoption->getopt-spec opt))))
+    ((name . (? open-option? opt))    (openoption->getopt-spec opt))
+    ((name . (? configuration?)) #f)))
 
 (define* (getopt-spec name test handler single-char #:optional required)
   "Create a getopt-long spec entry from NAME, TEST, SINGLE-CHAR and

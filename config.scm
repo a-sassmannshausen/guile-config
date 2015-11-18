@@ -87,16 +87,10 @@
 <configuration> derived from merging CONFIGURATION, ARGS and CONFIGURATION's
 configuration files."
   (mlet* %io-monad
-      ;; Remember, we may have nested configurations!
-      (;; first create getopt-long
-       ;; then check '() of getopt-long for recursive configurations
-       ;; if present, merge each wich is present
-       ;; if not, proceed as below.
-       ;; ----
-       ;; will need to be lifted when implementing above!
-       (ignore (ensure-config-files configuration))
-       (merged-config (merge-config-file-values configuration)))
-    ;; derive/merge-config-getopt is non-monadic!
+      ((ignore (ensure-config-files configuration))
+       (subcommands -> (establish-subcommands configuration args))
+       (merged-config (merge-config-file-values configuration subcommands)))
+    ;; derive/merge-config-getopt is non-monadic, so we wrap in return!
     (return (derive/merge-config-getopt merged-config args))))
 
 (define (getmio-config-auto args config)
@@ -152,26 +146,30 @@ found."
 (define* (make-help-emitter config #:optional port)
   "Traverse CONFIG, building a GNU-style help message as we do so and emit it
 to PORT."
+  (define (filter-opts opts)
+    (filter (lambda (x) (or (public-option? x) (open-option? x))) opts))
   (match (configuration-values config)
-    (((names . (? option? opts)) ...)
+    (((names . (? (lambda (x) (or configuration? option?)) opts)) ...)
      ;; Short Help
      (format port "Usage: ~a ~a~%"
              (symbol->string (configuration-name config))
-             (sort-opts (filter (negate private-option?) opts)
+             (sort-opts (filter-opts opts)
                         (+ (string-length "Usage: ")
                            (string-length (symbol->string
                                            (configuration-name config)))
                            1)))
      ;; Detailed Help
      (format port "~%Options:~%~a~%"
-             (sort-detailed-opts (filter (negate private-option?) opts)))
+             (sort-detailed-opts (filter-opts opts)))
+     ;; Subcommand listing
+     (match (sort-subcommands (filter configuration? opts))
+       ("" #f)
+       (subcommands (format port "~%Subcommands:~%~a~%" subcommands)))
      ;; Synopsis
      (if (configuration-long config)
          (format port "~%~a~%"
                  (fill-paragraph (configuration-long config) 80))))
 
-    (((name . (or ($ <configuration>) (? option? opts))) ...)
-     (throw 'config "CONFIGURATION in help is not yet supported."))
     (_ (throw 'config "CONFIG is invalid."))))
 
 (define* (make-version-emitter config #:optional port)
@@ -272,7 +270,7 @@ SIMPLE-PARSER."
      (#f (match values
            (((and (? option?) (? (negate open-option?))) ...) config-dir)
            (_ (throw 'config-spec
-                    "If not CONFIG-DIR, then no openoptions are allowd."))))
+                     "If not CONFIG-DIR, then no openoptions are allowd."))))
      ;; Else error value
      (_ (throw 'config-spec "CONFIG-DIR should be an absolute filepath, or #f.")))
    (match values
@@ -311,19 +309,86 @@ SIMPLE-PARSER."
 
 ;;;; Plumbing
 
+;; On the merge process:
+;; We have
+;; a) a list of subcommands, where the last element is the subcommand to
+;;    finally executed, and each prior element is a breadcrumb on the trail to
+;;    it.  The car is the next configuration on this breadcrumb trail.
+;; b) configuration, which is the full configuration as defined by the app.
+;;
+;; [obsolete]
+;; We want:
+;; A new configuration which consists only of `subcommand's' configuration,
+;; augmented by the default settings and config-file settings from parent
+;; subcommands.
+;; This means:
+;; a) each setting that is not explicitly defined in `subcommand',
+;;    but which exists in any parent, is added with the parent's default or
+;;    config file value (all <configuration>s, except those in `subcommand'
+;;    will simply be dropped).
+;; b) each setting that is defined in `subcommand', and also in a parent
+;;    command will use the value from the `subcommand' config or it's
+;;    default.
+;; c) We return this new configuration for parsing by
+;;    `derive/merge-config...', so that any cli args passed that are valid for
+;;    parent commands are valid for the child command.
+;; [obsolete] reasoning:
+;; This could be counter-intuitive.  I like this idea as it could
+;; significantly shorten configuration definitions, but it should rely on an
+;; 'inheritance' flag in define-configuration.  This flag could tell that all
+;; lower level configurations should inherit from their 'inheritance #t'
+;; parent.
+;;
+;;
+;; Non-inheritance version:
+;; A new configuration that simply reflects the configuration as defined by
+;; `subcommand'.
+;;
+;; There are 3 separate operations here: locate a given configuration, read
+;; that configuration's config file, merge the parent configuration into this
+;; newly updated configuration if necessary.
+
 ;; => io read -> configuration.
-(define (merge-config-file-values configuration)
-  "Return a version of CONFIGURATION which has been augmented by the
-configuration values from its configuration file."
-  (mlet* %io-monad
-      ((old-io (set-io-input-file (configuration-file configuration)))
-       (config (configuration-read configuration))
-       (ignore (io-close-input-port old-io)))
-    (return config)))
+(define (merge-config-file-values configuration subcommands)
+  "Return a new configuration corresponding to the subcommand specified by the
+breadcrumb trail in SUBCOMMANDS, and based on CONFIGURATION which has been
+augmented by the configuration values from its configuration file."
+  (define configuration-inheritance (const #f))
+  (define (read-merge config)
+    "Read the configuration file for CONFIG and return an augmented config in
+the %io-monad."
+    (mlet* %io-monad
+        (;; We must anticipate the file not existing — what happens to
+         ;; set-io-input-file?
+         (old-io (set-io-input-file (configuration-file config)))
+         (config (configuration-read config))
+         (ignore (io-close-input-port old-io)))
+      (return config)))
+  (define (find-subconfiguration configuration config-name)
+    "Return the subconfiguration in CONFIGURATION specified by CONFIG-NAME."
+    (match (assq config-name (configuration-values configuration))
+      (#f (throw 'merge-config-file-values "Unknown subconfiguration: "
+                 config-name))
+      ((name . (? configuration? subconfiguration)) subconfiguration)
+      (_ (throw 'merge-config-file-values "Not a <configuration>: "
+                config-name))))
+
+  (if (configuration-inheritance configuration)
+      ;; Inherit workflow
+      ;; For now guaranteed not implemented.
+      ;; (recurse configuration subcommands)
+      configuration
+      ;; Simple workflow
+      (match subcommands
+        (() (read-merge configuration))
+        ((first . rest)
+         (merge-config-file-values (find-subconfiguration configuration first)
+                                   rest)))))
 
 ;; => io write -> '()
 (define (ensure-config-files configuration)
-  "Check if CONFIGURATION's config-file exists, and create it if it doesn't.
+  "Check if CONFIGURATION's config-files exist (recursively), and create any
+that do not exist.
 Return values is unspecified in the io-monad."
   (define (ensure config)
     (if (not (file-exists? (configuration-file config)))
@@ -350,24 +415,55 @@ Return values is unspecified in the io-monad."
 
 
 ;;;; Helpers
+(define (padded string longest)
+  "Return STRING with white-space appended up to length LONGEST."
+  (let moar ((name string)
+             (padding (- longest (string-length string))))
+    (if (> padding 0)
+        (moar (string-append name " ") (1- padding))
+        name)))
 
-(define (sort-detailed-opts opts)
-  ;; Long options should be:
-  ;; - Determine longest option name
-  ;; - Sorted alpha, one per line, with long name padded to longest
-  ;; Options:
-  ;;   --name     -n   Name of user
-  ;;   --target   -t   Target of game
-  ;;   --zulu          Bogus option
-  (define (padded n longest)
-    (let moar ((name n)
-               (padding (- longest (string-length n))))
-      (if (> padding 0)
-          (moar (string-append name " ") (1- padding))
-          name)))
+(define (sort-subcommands opts)
+  "Return a formatted string consisting of the name and terse description of
+the subcommands contained in OPTS."
+  ;; Subcommand listing should be:
+  ;; Subcommands:
+  ;;   command1        command-terse
+  ;;   command2        command-terse
+  ;;   command3        command-terse
+  ;; [2 spaces][padded name longest][4 spaces][2 spaces]terse
   (string-join
    (match (fold (lambda (opt result)
-                  ;; result: `(opts longest)
+                  ;; result: `(((conf-name . terse) ...) . longest)
+                  (match result
+                    ((confs . longest)
+                     (match opt
+                       (($ <configuration> n _ _ t)
+                        (match (symbol->string n)
+                          ((? (compose (cut > <> longest) string-length) n)
+                           `(((,n . ,t) . ,confs) . ,(string-length n)))
+                          (n `(((,n . ,t) . ,confs) . ,longest))))))))
+                '(() . 0) opts)
+     ((conf-specs . longest)
+      (sort (map (lambda (spec)
+                   (match spec
+                     ((n . t)
+                      (string-append "  " (padded n longest)
+                                     "    " "  " t))))
+                 conf-specs)
+            string-ci<=?))
+     (() '()))
+   "\n"))
+
+(define (sort-detailed-opts opts)
+  "Return a formatted string of OPTS.  An example of our output:
+
+    --name     -n   Name of user
+    --target   -t   Target of game
+    --zulu          Bogus option"
+  (string-join
+   (match (fold (lambda (opt result)
+                  ;; result: `(opts . longest)
                   (match result
                     ((opts . longest)
                      (match opt
@@ -378,7 +474,7 @@ Return values is unspecified in the io-monad."
                            (cons (cons (list n s t) opts) (string-length n)))
                           (n (cons (cons (list n s t) opts) longest))))))))
                 '(() . 0)
-                (filter (negate private-option?) opts))
+                opts)
      ((opt-specs . longest)
       (sort (map (lambda (spec)
                    (match spec
@@ -393,6 +489,8 @@ Return values is unspecified in the io-monad."
    "\n"))
 
 (define (sort-opts opts indent)
+  "Return a formatted string of OPTS, INDENTED up to level INDENT.
+This formatting is intended for the brief summary of our command."
   (define (whitespace)
     (let moar ((togo indent)
                (white ""))

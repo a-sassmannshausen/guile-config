@@ -392,7 +392,8 @@ conf-value->value-for-test.
      (match values
        (((or (name . ($ <prioption> name value))
              (name . ($ <openoption> name value))
-             (name . ($ <puboption> name value))) ...)
+             (name . ($ <puboption> name value))
+             (name . ($ <configuration> name _ value _ _))) ...)
         (for-each (lambda (name value)
                     (format #t "  ~a: ~a~%" name value))
                   name value))))))
