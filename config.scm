@@ -395,13 +395,14 @@ the %io-monad."
 that do not exist.
 Return values is unspecified in the io-monad."
   (define (ensure config)
-    (if (not (file-exists? (configuration-file config)))
+    (if (or (not (configuration-file config))
+            (file-exists? (configuration-file config)))
+        (with-monad %io-monad (return '()))
         (mlet* %io-monad
             ((ignore  (iomkdir-p (configuration-dir config)))
              (old-out (set-io-output-file (configuration-file config)))
              (ignore  (configuration-write config)))
-          (io-close-output-port old-out))
-        (with-monad %io-monad (return '()))))
+          (io-close-output-port old-out))))
   (define (recurse values)
     (match values
       (() (with-monad %io-monad (return '())))

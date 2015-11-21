@@ -408,10 +408,13 @@ have to take an argument."
                   name value))))))
 
 (define (configuration-file configuration)
-  "Return the full filename of the CONFIGURATION file we want to use."
-  (string-append (configuration-dir configuration)
-                 file-name-separator-string
-                 (symbol->string (configuration-name configuration))))
+  "Return the full filename of the CONFIGURATION file we want to use, or #f if
+we don't have a configuration dir."
+  (if (configuration-dir configuration)
+      (string-append (configuration-dir configuration)
+                     file-name-separator-string
+                     (symbol->string (configuration-name configuration)))
+      #f))
 
 
 ;;;; Common Option Convenience
