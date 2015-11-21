@@ -111,13 +111,16 @@ apply."
     ((name . (? open-option? opt))    (openoption->getopt-spec opt))
     ((name . (? configuration?)) #f)))
 
-(define* (getopt-spec name test handler single-char #:optional required)
+(define* (getopt-spec name test handler single-char optional?
+                      #:optional required)
   "Create a getopt-long spec entry from NAME, TEST, SINGLE-CHAR and
 REQUIRED."
   (define (value-entry)
     (match (procedure-name test)
       ('boolean? '((value #f)))
-      (_         '((value #t)))))
+      (_  (if optional?
+              '((value optional))
+              '((value #t))))))
 
   (apply list name `(predicate ,(compose test handler)) `(required? ,required)
          (match single-char
@@ -128,17 +131,18 @@ REQUIRED."
 (define (openoption->getopt-spec openoption)
   "Return the getopt-long option-spec for OPENOPTION."
   (match openoption
-    (($ <openoption> name '<unset> test cli-handler _ single-char _ _)
-     (getopt-spec name test cli-handler single-char #t))
-    (($ <openoption> name _ test cli-handler _ single-char _ _)
-     (getopt-spec name test cli-handler single-char))))
+    (($ <openoption> name '<unset> test cli-handler _ single-char _ _ _
+                     optional)
+     (getopt-spec name test cli-handler single-char optional #t))
+    (($ <openoption> name _ test cli-handler _ single-char _ _ _ optional)
+     (getopt-spec name test cli-handler single-char optional))))
 
 (define (puboption->getopt-spec puboption)
   "Return the getopt-long option-spec for PUBOPTION."
   (match puboption
-    (($ <puboption> name '<unset> test handler single-char _ _)
-     (getopt-spec name test handler single-char #t))
-    (($ <puboption> name _ test handler single-char _ _)
-     (getopt-spec name test handler single-char))))
+    (($ <puboption> name '<unset> test handler single-char _ _ _ optional)
+     (getopt-spec name test handler single-char optional #t))
+    (($ <puboption> name _ test handler single-char _ _ _ optional)
+     (getopt-spec name test handler single-char optional))))
 
 ;;; getopt.scm ends here.

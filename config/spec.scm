@@ -280,7 +280,8 @@ TERSE should be a < 40 char decsription.
 ;;; Public options are options that do not feature in configuration files, but
 ;;; which can be specified on the command line.
 (define-immutable-record-type <puboption>
-  (mecha-puboption name value test handler single-char terse long example)
+  (mecha-puboption name value test handler single-char terse long example
+                   optional)
   public-option?
   (name puboption-name set-puboption-name)
   (value puboption-value set-puboption-value)
@@ -289,11 +290,12 @@ TERSE should be a < 40 char decsription.
   (single-char puboption-single-char set-puboption-single-char)
   (terse puboption-terse set-puboption-terse)
   (long puboption-long set-puboption-long)
-  (example puboption-example set-puboption-example))
+  (example puboption-example set-puboption-example)
+  (optional puboption-optional set-puboption-optional))
 
 (define* (define-public-option name terse #:key long
            (value '<unset>) single-char (test boolean?) (handler identity)
-           (example "VALUE"))
+           (example "VALUE") optional?)
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
@@ -304,7 +306,9 @@ spec assigned to this option.
  - HANDLER: a procedure of one argument to apply to the string as provided
 from the commandline.  This should be a transformer from
 string->value-for-test.
- - EXAMPLE: an example cli value for help purposes."
+ - EXAMPLE: an example cli value for help purposes.
+ - OPTIONAL?: a boolean to inform us that the cli argument can, but doesn't
+have to take an argument."
   (mecha-puboption (check-name name)
                    (check-value value)
                    (check-test test)
@@ -312,7 +316,8 @@ string->value-for-test.
                    (check-single-char single-char)
                    (check-terse terse)
                    (check-long long)
-                   (check-example example)))
+                   (check-example example)
+                   (check-optional optional?)))
 
 ;;;;; Open Options
 ;;;
@@ -321,7 +326,7 @@ string->value-for-test.
 ;;; the CLI.
 (define-immutable-record-type <openoption>
   (mecha-openoption name value test cli-handler conf-handler single-char terse
-                    long example)
+                    long example optional)
   open-option?
   (name openoption-name set-openoption-name)
   (value openoption-value set-openoption-value)
@@ -331,11 +336,12 @@ string->value-for-test.
   (single-char openoption-single-char set-openoption-single-char)
   (terse openoption-terse set-openoption-terse)
   (long openoption-long set-openoption-long)
-  (example openoption-example set-openoption-example))
+  (example openoption-example set-openoption-example)
+  (optional openoption-optional set-openoption-optional))
 
 (define* (define-open-option name terse #:key single-char
            (value '<unset>) (test boolean?) (cli-handler identity)
-           (conf-handler identity) long (example "VALUE"))
+           (conf-handler identity) long (example "VALUE") optional?)
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
@@ -350,7 +356,9 @@ string->value-for-test.
  - CONF-HANDLER: a procedure of one argument to apply to the value as read
 from the configuration file.  This should be a transformer from
 conf-value->value-for-test.
- - EXAMPLE: an example cli value for help purposes."
+ - EXAMPLE: an example cli value for help purposes.
+ - OPTIONAL?: a boolean to inform us that the cli argument can, but doesn't
+have to take an argument."
   (mecha-openoption (check-name name)
                     (check-value value)
                     (check-test test)
@@ -359,7 +367,8 @@ conf-value->value-for-test.
                     (check-single-char single-char)
                     (check-terse terse)
                     (check-long long)
-                    (check-example example)))
+                    (check-example example)
+                    (check-optional optional?)))
 
 ;;;;; Generic Option Predicate
 
@@ -577,5 +586,10 @@ help output."
   (match example
     ((? string?) example)
     (_ (throw 'config-spec "EXAMPLE should be a string."))))
+
+(define (check-optional optional)
+  (match optional
+    ((? boolean?) optional)
+    (_ (throw 'config-spec "OPTIONAL should be a boolean."))))
 
 ;;; config-spec.scm ends here.
