@@ -99,7 +99,7 @@
         (format port "~%")
         (for-each (lambda (value)
                     (match value
-                      ((name . ($ <openoption> name value _ _ _ _ terse long))
+                      ((name . ($ <openoption> name value _ _ _ terse long))
                        (format port ";;;; ~a~%;;;~%" name)
                        (for-each (lambda (line)
                                    (pretty-print line port

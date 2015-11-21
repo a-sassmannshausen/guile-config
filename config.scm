@@ -473,7 +473,7 @@ the subcommands contained in OPTS."
                     ((opts . longest)
                      (match opt
                        ((or ($ <puboption> n _ _ _ s t)
-                            ($ <openoption> n _ _ _ _ s t))
+                            ($ <openoption> n _ _ _ s t))
                         (match (symbol->string n)
                           ((? (compose (cut > <> longest) string-length) n)
                            (cons (cons (list n s t) opts) (string-length n)))
@@ -524,7 +524,7 @@ This formatting is intended for the brief summary of our command."
                       ((short-bools long-bools short-rest long-rest)
                        (match opt
                          ((or ($ <puboption> n v t _ s _ _ e)
-                              ($ <openoption> n v t _ _ s _ _ e))
+                              ($ <openoption> n v t _ s _ _ e))
                           (cond ((and s (boolproc? t)) ; short bool
                                  (list (cons s short-bools) long-bools
                                        short-rest long-rest))
