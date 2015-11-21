@@ -447,6 +447,7 @@ application."
   "Analyse OBJ and return a <license> constructed from it."
   (match obj
     ('gplv3+ (cons (license-gplv3+) values))
+    ('agplv3+ (cons (license-agplv3+) values))
     ((? license?) (cons license values))
     ((? string?) (cons (license-generic license) values))
     (_ (throw 'license-maker
@@ -475,6 +476,14 @@ string naming a license."))))
     "The license of this project."
     #:value (license "GPLv3+" "GNU GPL version 3 or later"
                      "http://gnu.org/licenses/gpl.html")
+    #:test license?))
+
+(define (license-agplv3+)
+  "Return a <license> representing the AGPLv3+."
+  (define-private-option 'license
+    "The license of this project."
+    #:value (license "AGPLv3+" "GNU AGPL version 3 or later"
+                     "http://gnu.org/licenses/agpl.html")
     #:test license?))
 
 ;;;;; Copyright
