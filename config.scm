@@ -266,12 +266,16 @@ SIMPLE-PARSER."
   (mecha-configuration
    (check-name name)
    (match config-dir
+     ;; We have a config file!
      ((and (? string?) (? absolute-file-name?)) config-dir)
-     (#f (match values
-           (((and (? option?) (? (negate open-option?))) ...) config-dir)
-           (_ (throw 'config-spec
-                     "If not CONFIG-DIR, then no openoptions are allowd."))))
-     ;; Else error value
+     (#f
+      ;; We have no config file, so only proceed if we have no values to be
+      ;; written to it.
+      (if (null? (filter open-option? values))
+          config-dir
+          (throw 'config-spec
+                 "If not CONFIG-DIR, then no openoptions are allowd.")))
+     ;; We've been given something odd for config-dir.
      (_ (throw 'config-spec "CONFIG-DIR should be an absolute filepath, or #f.")))
    (match values
      (((or (? option?) (? configuration?)) ...)
