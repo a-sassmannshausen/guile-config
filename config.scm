@@ -74,6 +74,7 @@
                 getmio-config
                 getmio-config-auto
                 option-ref
+                subcommand
                 make-help-emitter
                 make-version-emitter
                 define-configuration
@@ -142,6 +143,15 @@ found."
                   (($ <puboption> n v) v)
                   (($ <prioption> n v) v)
                   (($ <openoption> n v) v)))))))
+
+(define (subcommand configuration)
+  "Return the currently active subcommand of <configuration> CONFIGURATION.
+
+This is an alias to `configuration-name', as, in the case of an active
+subcommand, we reduce the root configuration to that subcommand's
+configuration.  Hence the name of that configuration will be the name of the
+subcommand currently active."
+  (configuration-name configuration))
 
 (define* (make-help-emitter config #:optional port)
   "Traverse CONFIG, building a GNU-style help message as we do so and emit it
