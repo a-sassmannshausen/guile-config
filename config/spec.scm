@@ -88,8 +88,10 @@
             set-configuration-name
             configuration-dir
             set-configuration-dir
-            configuration-values
-            set-configuration-values
+            configuration-options
+            set-configuration-options
+            configuration-configs
+            set-configuration-configs
             configuration-terse
             set-configuration-terse
             configuration-long
@@ -375,30 +377,35 @@ have to take an argument."
 ;;;; Configuration
 
 (define-immutable-record-type <configuration>
-  (mecha-configuration name dir values terse long parser)
+  (mecha-configuration name dir options configs terse long parser)
   configuration?
-  (name   configuration-name   set-configuration-name)
-  (dir    configuration-dir    set-configuration-dir)
-  (values configuration-values set-configuration-values)
-  (terse  configuration-terse  set-configuration-terse)
-  (long   configuration-long   set-configuration-long)
-  (parser configuration-parser set-configuration-parser))
+  (name    configuration-name    set-configuration-name)
+  (dir     configuration-dir     set-configuration-dir)
+  (options configuration-options set-configuration-options)
+  (configs configuration-configs set-configuration-configs)
+  (terse   configuration-terse   set-configuration-terse)
+  (long    configuration-long    set-configuration-long)
+  (parser  configuration-parser  set-configuration-parser))
 
 (define (configuration-print configuration)
   (match configuration
-    (($ <configuration> name dir values terse long)
+    (($ <configuration> name dir opts configs terse long)
      (format #t "~a~%~a~%" name terse)
      (when long (format #t "~%~a~%" long))
      (when dir (format #t "~%Configuration Directory: ~a~%" dir))
      (format #t "~%Values: ~%")
-     (match values
+     (match opts
        (((or (name . ($ <prioption> name value))
              (name . ($ <openoption> name value))
-             (name . ($ <puboption> name value))
-             (name . ($ <configuration> name _ value _ _))) ...)
+             (name . ($ <puboption> name value))) ...)
         (for-each (lambda (name value)
                     (format #t "  ~a: ~a~%" name value))
-                  name value))))))
+                  name value)))
+     (format #t "~%Configurations: ~%")
+     (match configs
+       (((name . (? configuration? configuration)) ...)
+        (for-each configuration-print
+                  name))))))
 
 (define (configuration-file configuration)
   "Return the full filename of the CONFIGURATION file we want to use, or #f if

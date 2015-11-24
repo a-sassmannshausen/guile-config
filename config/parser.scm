@@ -68,7 +68,7 @@
   (make-configuration-parser
    ;; Reader
    (lambda (configuration port)
-     (set-configuration-values
+     (set-configuration-options
       configuration
       (map ((lambda (opts)
               (lambda (opt)
@@ -84,11 +84,11 @@
                            (exit 1)))))
                   (_ opt))))
             (stream->list (port->stream port read)))
-           (configuration-values configuration))))
+           (configuration-options configuration))))
    ;; Writer
    (lambda (configuration port)
      (match configuration
-       (($ <configuration> name _ values terse long _)
+       (($ <configuration> name _ opts _ terse long _)
         (format port ";;;; ~a - ~a~%" name terse)
         (when long
           (for-each (lambda (line)
@@ -121,7 +121,7 @@
                                      #:max-expr-width 72)
                        (format port "~%"))
                       (_ #f)))
-                  (sort values
+                  (sort opts
                         (lambda (a b)
                           (string-ci<? (symbol->string (car a))
                                        (symbol->string (car b)))))))))))

@@ -136,7 +136,7 @@ was passed, and if it was, emit the appropriate messages before exiting."
   "Return the value for KEY in CONFIGURATION, or DEFAULT if it cannot be
 found."
   (match configuration
-    (($ <configuration> _ _ values _ _)
+    (($ <configuration> _ _ values _ _ _)
      (match (assq (if (null? key) 'the-empty-prioption key) values)
        (#f default)
        ((k . v) (match v
@@ -158,8 +158,8 @@ subcommand currently active."
 to PORT."
   (define (filter-opts opts)
     (filter (lambda (x) (or (public-option? x) (open-option? x))) opts))
-  (match (configuration-values config)
-    (((names . (? (lambda (x) (or configuration? option?)) opts)) ...)
+  (match (configuration-options config)
+    (((names . (? option? opts)) ...)
      ;; Short Help
      (format port "Usage: ~a ~a~%"
              (symbol->string (configuration-name config))
@@ -170,17 +170,16 @@ to PORT."
                            1)))
      ;; Detailed Help
      (format port "~%Options:~%~a~%"
-             (sort-detailed-opts (filter-opts opts)))
-     ;; Subcommand listing
-     (match (sort-subcommands (filter configuration? opts))
-       ("" #f)
-       (subcommands (format port "~%Subcommands:~%~a~%" subcommands)))
-     ;; Synopsis
-     (if (configuration-long config)
-         (format port "~%~a~%"
-                 (fill-paragraph (configuration-long config) 80))))
-
-    (_ (throw 'config "CONFIG is invalid."))))
+             (sort-detailed-opts (filter-opts opts))))
+    (_ (throw 'config "CONFIG is invalid.")))
+  ;; Subcommand listing
+  (match (sort-subcommands (configuration-configs config))
+    ("" #f)
+    (subcommands (format port "~%Subcommands:~%~a~%" subcommands)))
+  ;; Synopsis
+  (if (configuration-long config)
+      (format port "~%~a~%"
+              (fill-paragraph (configuration-long config) 80))))
 
 (define* (make-version-emitter config #:optional port)
   "Traverse CONFIG, building a GNU-style version message as we do so and emit
@@ -230,7 +229,7 @@ If omitted, this will default to `string?'.
 configuration file associated with this configuration.  It defaults to
 SIMPLE-PARSER."
   ;; If we have been provided with convenience option values, we should
-  ;; augment our configuration-values before finally instantiating
+  ;; augment our configuration-options before finally instantiating
   ;; <configuration>.
   (define (augment-if proc do? values)
     (match do?
@@ -238,87 +237,97 @@ SIMPLE-PARSER."
       (#f values)
       (_ (match (proc do? version-test?)
            ((vrsion vrsion-num) (cons* vrsion vrsion-num values))))))
-  (define* (augment-values values #:optional next)
-    (define (version-augment values)
+  (define* (augment-opts opts #:optional next)
+    (define (version-augment opts)
       (list (if version?
                 (match (complex-version version? version-test?)
                   ((vrsion vrsion-num)
-                   (cons* vrsion vrsion-num values))
+                   (cons* vrsion vrsion-num opts))
                   (_ (throw 'config-spec
                             "This should really not have happened.")))
-                values)
+                opts)
             license-augment))
-    (define (license-augment values)
-      (list (if license (license-maker license values) values)
+    (define (license-augment opts)
+      (list (if license (license-maker license opts) opts)
             copyright-augment))
-    (define (copyright-augment values)
+    (define (copyright-augment opts)
       (list (match copyright
-              (#f values)
-              (((? integer? years) ...) (cons (copyright-maker years) values))
+              (#f opts)
+              (((? integer? years) ...) (cons (copyright-maker years) opts))
               (_ (throw 'config-spec
                         "Invalid COPYRIGHT: should be a list of years.")))
             author-augment))
-    (define (author-augment values)
+    (define (author-augment opts)
       (list (match author
-              (#f values)
-              ((? string?) (cons (author-maker author) values))
+              (#f opts)
+              ((? string?) (cons (author-maker author) opts))
               (_ (throw 'config-spec
                         "Invalid AUTHOR: should be a string.")))
             #t))
 
     (match next
-      ((? procedure?) (apply augment-values (next values)))
-      (#f (apply augment-values (version-augment values)))
-      (#t values)))
+      ((? procedure?) (apply augment-opts (next opts)))
+      (#f (apply augment-opts (version-augment opts)))
+      (#t opts)))
 
   ;; We generate a <configuration> record, but only if we pass our basic
   ;; parsing of the values that were provided.
-  (mecha-configuration
-   (check-name name)
-   (match config-dir
-     ;; We have a config file!
-     ((and (? string?) (? absolute-file-name?)) config-dir)
-     (#f
-      ;; We have no config file, so only proceed if we have no values to be
-      ;; written to it.
-      (if (null? (filter open-option? values))
-          config-dir
-          (throw 'config-spec
-                 "If not CONFIG-DIR, then no openoptions are allowd.")))
-     ;; We've been given something odd for config-dir.
-     (_ (throw 'config-spec "CONFIG-DIR should be an absolute filepath, or #f.")))
-   (match values
-     (((or (? option?) (? configuration?)) ...)
-      (map (lambda (opt/conf)
-             "Turn OPT/CONF into a k/v pair where k is the name of opt/conf."
-             (match opt/conf
-               (($ <configuration> name) (cons name opt/conf))
-               (($ <prioption> name) (cons name opt/conf))
-               (($ <puboption> name) (cons name opt/conf))
-               (($ <openoption> name) (cons name opt/conf))
-               (_ (throw 'config-spec "Invalid value in configuration."))))
-           ;; Generate full list of values
-           ;; Starting with the special option for non-opts or opt-values
-           (cons (define-private-option 'the-empty-prioption
-                   "Special empty list private property."
-                   #:value '()
-                   #:test list?)
-                 (augment-values
-                  (augment-if usage usage?
-                              (augment-if help help? values))))))
-     ;; Else error value
-     (_ (throw 'config-spec
-               "VALUES should be a list of options and/or configurations.")))
-   (match terse
-     ;; FIXME: Also test whether shorter than max-length!
-     ((? string?) terse)
-     (_ (throw 'config-spec "TERSE should be a string.")))
-   (match long
-     ((or (? string?) #f) long)
-     (_ (throw 'config-spec "LONG should be a string, or #f.")))
-   (match parser
-     ((? configuration-parser?) parser)
-     (_ (throw 'config-spec "PARSER should be a configuration parser.")))))
+  (apply mecha-configuration
+         `(,(check-name name)
+           ,(match config-dir
+              ;; We have a config file!
+              ((and (? string?) (? absolute-file-name?)) config-dir)
+              (#f
+               ;; We have no config file, so only proceed if we have no values
+               ;; to be; written to it.
+               (if (null? (filter open-option? values))
+                   config-dir
+                   (throw 'config-spec
+                          "Open options specified, but no config-dir!")))
+              ;; We've been given something odd for config-dir.
+              (_ (throw 'config-spec
+                        "CONFIG-DIR should be an absolute filepath, or #f.")))
+           ;; Augment values and split it into opts & confs
+           ,@(let loop ((values (cons (define-private-option
+                                        'the-empty-prioption
+                                        "Special empty list private property."
+                                        #:value '()
+                                        #:test list?)
+                                      (augment-opts
+                                       (augment-if usage usage?
+                                                   (augment-if help help?
+                                                               values)))))
+                        (opts '())
+                        (confs '()))
+               (match values
+                 (()
+                  (map reverse
+                       ;; Generate final list of augmented opts and confs
+                       (list opts confs)))
+                 (((? option? opt) . rest)
+                  (loop rest
+                        (cons
+                         (match opt
+                           (($ <prioption> name) (cons name opt))
+                           (($ <puboption> name) (cons name opt))
+                           (($ <openoption> name) (cons name opt))) opts)
+                        confs))
+                 (((? configuration? conf) . rest)
+                  (loop rest opts (cons (cons (configuration-name conf) conf)
+                                        confs)))
+                 (_ (throw 'config-spec
+                                   "Invalid option in configuration."))))
+           ,(match terse
+              ;; FIXME: Also test whether shorter than max-length!
+              ((? string?) terse)
+              (_ (throw 'config-spec "TERSE should be a string.")))
+           ,(match long
+              ((or (? string?) #f) long)
+              (_ (throw 'config-spec "LONG should be a string, or #f.")))
+           ,(match parser
+              ((? configuration-parser?) parser)
+              (_ (throw 'config-spec
+                        "PARSER should be a configuration parser."))))))
 
 
 ;;;; Plumbing
@@ -380,7 +389,7 @@ the %io-monad."
       (return config)))
   (define (find-subconfiguration configuration config-name)
     "Return the subconfiguration in CONFIGURATION specified by CONFIG-NAME."
-    (match (assq config-name (configuration-values configuration))
+    (match (assq config-name (configuration-configs configuration))
       (#f (throw 'merge-config-file-values "Unknown subconfiguration: "
                  config-name))
       ((name . (? configuration? subconfiguration)) subconfiguration)
@@ -417,16 +426,16 @@ Return values is unspecified in the io-monad."
     (match values
       (() (with-monad %io-monad (return '())))
       (((name . (? configuration? config)) . rest)
-       ;; create config, then recurse with (configuration-values config) + rest
+       ;; create config, then recurse with (configuration-configs config) + rest
        (mlet* %io-monad
            ((ignore (ensure config))
-            (ignore (recurse (configuration-values config))))
+            (ignore (recurse (configuration-configs config))))
          (recurse rest)))
       ((option . rest) (recurse rest))))
 
   (mlet* %io-monad
       ((ignore (ensure configuration)))
-    (recurse (configuration-values configuration))))
+    (recurse (configuration-configs configuration))))
 
 
 ;;;; Helpers
@@ -438,9 +447,9 @@ Return values is unspecified in the io-monad."
         (moar (string-append name " ") (1- padding))
         name)))
 
-(define (sort-subcommands opts)
+(define (sort-subcommands configs)
   "Return a formatted string consisting of the name and terse description of
-the subcommands contained in OPTS."
+the subcommands contained in CONFIGS."
   ;; Subcommand listing should be:
   ;; Subcommands:
   ;;   command1        command-terse
@@ -448,17 +457,17 @@ the subcommands contained in OPTS."
   ;;   command3        command-terse
   ;; [2 spaces][padded name longest][4 spaces][2 spaces]terse
   (string-join
-   (match (fold (lambda (opt result)
+   (match (fold (lambda (conf result)
                   ;; result: `(((conf-name . terse) ...) . longest)
                   (match result
                     ((confs . longest)
-                     (match opt
-                       (($ <configuration> n _ _ t)
+                     (match conf
+                       ((name . ($ <configuration> n _ _ _ t))
                         (match (symbol->string n)
                           ((? (compose (cut > <> longest) string-length) n)
                            `(((,n . ,t) . ,confs) . ,(string-length n)))
                           (n `(((,n . ,t) . ,confs) . ,longest))))))))
-                '(() . 0) opts)
+                '(() . 0) configs)
      ((conf-specs . longest)
       (sort (map (lambda (spec)
                    (match spec

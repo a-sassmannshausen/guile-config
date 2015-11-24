@@ -41,11 +41,11 @@
                                                                 cli-params)
                                            '() '()))
                   (subcommands '())
-                  (config-values (configuration-values configuration)))
+                  (configs     (configuration-configs configuration)))
     (match free-params
       (((? string? candidate) . rest)
-       (match (assq (string->symbol candidate) config-values)
-         ((k . ($ <configuration> _ _ values _ _))
+       (match (assq (string->symbol candidate) configs)
+         ((k . ($ <configuration> _ _ opts configs _ _))
           (establish rest (cons (string->symbol candidate) subcommands)
                      values))
          ;; Could be #f or an <option>
@@ -63,9 +63,9 @@ CONFIG."
   "Return the <configuration> resulting from merging the getopt-long interface
 GETOPTS (normally the list of commandline arguments to a program) into
 <configuration> CONFIG."
-  (set-configuration-values config
+  (set-configuration-options config
                             (map (getopt-merger getopts)
-                                 (configuration-values config))))
+                                 (configuration-options config))))
 
 (define (getopt-merger getopts)
   "Return a procedure taking a configuration-value from a <configuration>,
@@ -100,7 +100,7 @@ CLI-VALUE, or just the original configuration-value OPTION-NAME."
   "Return the getopt-long option-spec corresponding to CONFIG.  Any private
 options will be ignored, as they have no getopt-long config (they have no
 commandline capability)."
-  (filter identity (map option->getopt-spec (configuration-values config))))
+  (filter identity (map option->getopt-spec (configuration-options config))))
 
 (define (option->getopt-spec option)
   "Return the getopt-long option-spec for OPTION, or #f if it does not
@@ -108,8 +108,7 @@ apply."
   (match option
     ((name . (? public-option? opt))  (puboption->getopt-spec opt))
     ((name . (? private-option?)) #f)
-    ((name . (? open-option? opt))    (openoption->getopt-spec opt))
-    ((name . (? configuration?)) #f)))
+    ((name . (? open-option? opt))    (openoption->getopt-spec opt))))
 
 (define* (getopt-spec name test handler single-char optional?
                       #:optional required)
