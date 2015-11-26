@@ -404,8 +404,7 @@ have to take an argument."
      (format #t "~%Configurations: ~%")
      (match configs
        (((name . (? configuration? configuration)) ...)
-        (for-each configuration-print
-                  name))))))
+        (for-each configuration-print configuration))))))
 
 (define (configuration-file configuration)
   "Return the full filename of the CONFIGURATION file we want to use, or #f if
