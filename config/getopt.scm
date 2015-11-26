@@ -47,7 +47,7 @@
   (config getopt-configuration)
   (free-params getopt-free-params))
 
-(define* (getopt-print getopt (port #t))
+(define* (getopt-print getopt #:optional (port #t))
   "Print the <getopt> GETOPT to stdout or to PORT."
   (configuration-print (getopt-configuration getopt))
   (format #t "Free Parameters: ~a~%" (getopt-free-params getopt)))
