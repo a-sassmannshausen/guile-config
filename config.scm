@@ -67,7 +67,7 @@
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
   #:re-export  (define-private-option define-public-option define-open-option
-                 configuration-parser configuration-print)
+                 configuration-parser configuration-print getopt-print)
   #:export     (
                 getopt-config
                 getopt-config-auto
@@ -132,17 +132,17 @@ Prior to returning <configuration> check whether --help, --usage or --version
 was passed, and if it was, emit the appropriate messages before exiting."
   (run-io (getmio-config-auto args config) input-port output-port error-port))
 
-(define* (option-ref configuration key #:optional default)
+(define* (option-ref getopt key #:optional default)
   "Return the value for KEY in CONFIGURATION, or DEFAULT if it cannot be
 found."
-  (match configuration
-    (($ <configuration> _ _ values _ _ _)
-     (match (assq (if (null? key) 'the-empty-prioption key) values)
-       (#f default)
-       ((k . v) (match v
-                  (($ <puboption> n v) v)
-                  (($ <prioption> n v) v)
-                  (($ <openoption> n v) v)))))))
+  (if (null? key)
+      (getopt-free-params getopt)
+      (match (assq key (configuration-options (getopt-configuration getopt)))
+        (#f default)
+        ((k . v) (match v
+                   (($ <puboption> n v) v)
+                   (($ <prioption> n v) v)
+                   (($ <openoption> n v) v))))))
 
 (define (subcommand configuration)
   "Return the currently active subcommand of <configuration> CONFIGURATION.
@@ -153,52 +153,54 @@ configuration.  Hence the name of that configuration will be the name of the
 subcommand currently active."
   (configuration-name configuration))
 
-(define* (make-help-emitter config #:optional port)
-  "Traverse CONFIG, building a GNU-style help message as we do so and emit it
-to PORT."
+(define* (make-help-emitter getopt #:optional (port #t))
+  "Traverse the config in GETOPT, building a GNU-style help message as we do
+so and emit it to PORT."
   (define (filter-opts opts)
     (filter (lambda (x) (or (public-option? x) (open-option? x))) opts))
-  (match (configuration-options config)
-    (((names . (? option? opts)) ...)
-     ;; Short Help
-     (format port "Usage: ~a ~a~%"
-             (symbol->string (configuration-name config))
-             (sort-opts (filter-opts opts)
-                        (+ (string-length "Usage: ")
-                           (string-length (symbol->string
-                                           (configuration-name config)))
-                           1)))
-     ;; Detailed Help
-     (format port "~%Options:~%~a~%"
-             (sort-detailed-opts (filter-opts opts))))
-    (_ (throw 'config "CONFIG is invalid.")))
-  ;; Subcommand listing
-  (match (sort-subcommands (configuration-configs config))
-    ("" #f)
-    (subcommands (format port "~%Subcommands:~%~a~%" subcommands)))
-  ;; Synopsis
-  (if (configuration-long config)
-      (format port "~%~a~%"
-              (fill-paragraph (configuration-long config) 80))))
+  (let ((config (getopt-configuration getopt)))
+    (match (configuration-options config)
+      (((names . (? option? opts)) ...)
+       ;; Short Help
+       (format port "Usage: ~a ~a~%"
+               (symbol->string (configuration-name config))
+               (sort-opts (filter-opts opts)
+                          (+ (string-length "Usage: ")
+                             (string-length (symbol->string
+                                             (configuration-name config)))
+                             1)))
+       ;; Detailed Help
+       (format port "~%Options:~%~a~%"
+               (sort-detailed-opts (filter-opts opts))))
+      (_ (throw 'config "CONFIG is invalid.")))
+    ;; Subcommand listing
+    (match (sort-subcommands (configuration-configs config))
+      ("" #f)
+      (subcommands (format port "~%Subcommands:~%~a~%" subcommands)))
+    ;; Synopsis
+    (if (configuration-long config)
+        (format port "~%~a~%"
+                (fill-paragraph (configuration-long config) 80)))))
 
-(define* (make-version-emitter config #:optional port)
-  "Traverse CONFIG, building a GNU-style version message as we do so and emit
-it to PORT."
+(define* (make-version-emitter getopt #:optional port)
+  "Traverse the config in GETOPT, building a GNU-style version message as we
+do so and emit it to PORT."
   (format port "~a~%~a~a~a~%"
-          (match (list (configuration-name config)
-                       (option-ref config 'version-number #f))
+          (match (list (configuration-name (getopt-configuration getopt))
+                       (option-ref getopt 'version-number #f))
             ((name #f) (symbol->string name))
             ((name (? string? version))
              (string-append (symbol->string name) " " version))
             ((name (? number? version))
-             (string-append (symbol->string name) (number->string version))))
-          (match (map (cut option-ref config <> #f) '(copyright author))
+             (string-append (symbol->string name)
+                            (number->string version))))
+          (match (map (cut option-ref getopt <> #f) '(copyright author))
             ((or (#f _) (_ #f)) "")
             ((years author)
              (string-append "Copyright (C) "
                             (string-join (map number->string years) ", ")
                             " " author "\n")))
-          (match (option-ref config 'license #f)
+          (match (option-ref getopt 'license #f)
             ((? license? license)
              (string-append (license->string license) "\n"))
             (_ ""))
@@ -288,15 +290,9 @@ SIMPLE-PARSER."
               (_ (throw 'config-spec
                         "CONFIG-DIR should be an absolute filepath, or #f.")))
            ;; Augment values and split it into opts & confs
-           ,@(let loop ((values (cons (define-private-option
-                                        'the-empty-prioption
-                                        "Special empty list private property."
-                                        #:value '()
-                                        #:test list?)
-                                      (augment-opts
-                                       (augment-if usage usage?
-                                                   (augment-if help help?
-                                                               values)))))
+           ,@(let loop ((values (augment-opts
+                                 (augment-if usage usage?
+                                             (augment-if help help? values))))
                         (opts '())
                         (confs '()))
                (match values

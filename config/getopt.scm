@@ -26,10 +26,31 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-26)
-  #:export     (derive/merge-config-getopt
+  #:export     (<getopt>
+                getopt-print
+                getopt-free-params
+                getopt-configuration
+                derive/merge-config-getopt
                 establish-subcommands
                 configuration->getopt-spec))
+
+;;;;; GetOpt Record
+;;;
+;;; <getopt> is a <configuration> wrapped together with getopt's special '()
+;;; free params.
+
+(define-record-type <getopt>
+  (getopt config free-params)
+  getopt?
+  (config getopt-configuration)
+  (free-params getopt-free-params))
+
+(define* (getopt-print getopt (port #t))
+  "Print the <getopt> GETOPT to stdout or to PORT."
+  (configuration-print (getopt-configuration getopt))
+  (format #t "Free Parameters: ~a~%" (getopt-free-params getopt)))
 
 ;;;; Configuration/Getopt Merging
 (define (config->getopt-long config cli-params)
@@ -37,6 +58,8 @@
   (getopt-long cli-params (configuration->getopt-spec config)))
 
 (define (establish-subcommands configuration cli-params)
+  "Return a breadcrumb trail leading to the requested subcommand that is part
+of CONFIGURATION and requested by CLI-PARAMS."
   (let establish ((free-params (option-ref (config->getopt-long configuration
                                                                 cli-params)
                                            '() '()))
@@ -47,25 +70,27 @@
        (match (assq (string->symbol candidate) configs)
          ((k . ($ <configuration> _ _ opts configs _ _))
           (establish rest (cons (string->symbol candidate) subcommands)
-                     values))
+                     configs))
          ;; Could be #f or an <option>
          (_ (reverse subcommands))))
       ;; We have no free params (i.e. no subcommand specified).
       (() (reverse subcommands)))))
 
 (define (derive/merge-config-getopt config cli-params)
-  "Return the <configuration> resulting from merging the list CLI-PARAMS
-(normally the list of commandline arguments to a program) into <configuration>
-CONFIG."
-  (merge-config-getopt config (config->getopt-long config cli-params)))
+  "Return the <getopt> resulting from merging the list CLI-PARAMS into
+<configuration> CONFIG."
+  (apply getopt (merge-config-getopt config
+                                     (config->getopt-long config
+                                                          cli-params))))
 
 (define (merge-config-getopt config getopts)
   "Return the <configuration> resulting from merging the getopt-long interface
 GETOPTS (normally the list of commandline arguments to a program) into
 <configuration> CONFIG."
-  (set-configuration-options config
-                            (map (getopt-merger getopts)
-                                 (configuration-options config))))
+  (list (set-configuration-options config
+                              (map (getopt-merger getopts)
+                                   (configuration-options config)))
+        (option-ref getopts '() '())))
 
 (define (getopt-merger getopts)
   "Return a procedure taking a configuration-value from a <configuration>,
@@ -80,10 +105,6 @@ return the original configuration-value."
       ((name . (? open-option? opt))
        (cons name (opt-if set-openoption-value (option-ref getopts name #f)
                           opt (openoption-cli-handler opt))))
-      ;; Handle list of args that are not options or option-values
-      (('the-empty-prioption . (? private-option? opt))
-       (cons 'the-empty-prioption
-             (set-prioption-value opt (option-ref getopts '() '()))))
       (_ config-val))))
 
 (define (opt-if setter cli-value option-name handler)
