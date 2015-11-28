@@ -144,14 +144,14 @@ found."
                    (($ <prioption> n v) v)
                    (($ <openoption> n v) v))))))
 
-(define (subcommand configuration)
+(define (subcommand getopt)
   "Return the currently active subcommand of <configuration> CONFIGURATION.
 
 This is an alias to `configuration-name', as, in the case of an active
 subcommand, we reduce the root configuration to that subcommand's
 configuration.  Hence the name of that configuration will be the name of the
 subcommand currently active."
-  (configuration-name configuration))
+  (configuration-name (getopt-configuration getopt)))
 
 (define* (make-help-emitter getopt #:optional (port #t))
   "Traverse the config in GETOPT, building a GNU-style help message as we do
