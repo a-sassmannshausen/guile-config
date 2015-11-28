@@ -54,15 +54,55 @@
 
 ;;;; Configuration/Getopt Merging
 (define (config->getopt-long config cli-params)
-  ;; We should memoize this.
   (getopt-long cli-params (configuration->getopt-spec config)))
+
+(define (derive-free-params config cli-params)
+  "Return the free parameters, i.e. non key-word arguments, contained in
+CLI-PARAMS with respect to CONFIG."
+  ;; We must return the free-params of config.  We use getopt-long to do
+  ;; this.  However: config->getopt-long expects a flat config, and we have a
+  ;; nested config.  CLI-PARAMS could refer to options from any of the nested
+  ;; configs.  Hence we must "collapse" all nested options into one giant list
+  ;; of options, with all "validation cleared", so that the
+  ;; config->getopt-long conversion is guaranteed to succeed.
+  (define (clear-validation opt)
+    "Return a new version of OPT that is stripped of all validation."
+    (match opt
+      ((name . ($ <openoption> name value _ _ single-char))
+       (cons name (define-open-option name "" #:single-char single-char
+                    #:test (const #t) #:optional? #t #:value value)))
+      ((name . ($ <puboption> name value _ _ single-char))
+       (cons name (define-public-option name "" #:single-char single-char
+                    #:test (const #t) #:optional? #t #:value value)))
+      ((name . (? private-option?)) opt)))
+  (define (collapse configs options)
+    "Return either OPTIONS, or the product of appending to OPTIONS the result
+of further collapsing CONFIGS, if CONFIGS is not null."
+    (match configs
+      (() options)
+      (configs
+       (append options
+               (fold (lambda (current flattened)
+                       (match current
+                         ((name . ($ <configuration> _ _ options configs))
+                          (append  flattened (collapse configs options)))))
+                     '()
+                     configs)))))
+
+  (option-ref (config->getopt-long
+               (match config
+                 (($ <configuration> _ _ _ ()) config)
+                 (($ <configuration> _ _ opts confs)
+                  (set-configuration-options config
+                                             (map clear-validation
+                                                  (collapse confs opts)))))
+               cli-params)
+              '() '()))
 
 (define (establish-subcommands configuration cli-params)
   "Return a breadcrumb trail leading to the requested subcommand that is part
 of CONFIGURATION and requested by CLI-PARAMS."
-  (let establish ((free-params (option-ref (config->getopt-long configuration
-                                                                cli-params)
-                                           '() '()))
+  (let establish ((free-params (derive-free-params configuration cli-params))
                   (subcommands '())
                   (configs     (configuration-configs configuration)))
     (match free-params

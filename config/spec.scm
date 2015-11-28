@@ -59,6 +59,8 @@
             set-puboption-terse
             puboption-long
             set-puboption-long
+            puboption-optional
+            set-puboption-optional
             define-public-option
 
             <openoption>
@@ -77,6 +79,8 @@
             set-openoption-terse
             openoption-long
             set-openoption-long
+            openoption-optional
+            set-openoption-optional
             define-open-option
 
             option?
