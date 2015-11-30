@@ -102,6 +102,8 @@
             set-configuration-long
             configuration-parser
             set-configuration-parser
+            configuration-alias
+            set-configuration-alias
 
             configuration-file
             configuration-write
@@ -379,9 +381,11 @@ have to take an argument."
 
 
 ;;;; Configuration
+;;;
+;;; FIXME: should name & alias be strings?
 
 (define-immutable-record-type <configuration>
-  (mecha-configuration name dir options configs terse long parser)
+  (mecha-configuration name dir options configs terse long parser alias)
   configuration?
   (name    configuration-name    set-configuration-name)
   (dir     configuration-dir     set-configuration-dir)
@@ -389,7 +393,8 @@ have to take an argument."
   (configs configuration-configs set-configuration-configs)
   (terse   configuration-terse   set-configuration-terse)
   (long    configuration-long    set-configuration-long)
-  (parser  configuration-parser  set-configuration-parser))
+  (parser  configuration-parser  set-configuration-parser)
+  (alias   configuration-alias   set-configuration-alias))
 
 (define (configuration-print configuration)
   (match configuration

@@ -99,18 +99,36 @@ of further collapsing CONFIGS, if CONFIGS is not null."
                cli-params)
               '() '()))
 
+(define (expand-configs configs)
+  "Return configs, augmented by 'pseudo-configs' which are built out of the
+`config-alias' fields of each config, if it is defined."
+  (fold (lambda (current expanded-configs)
+          (match current
+            ((name . config)
+             (match (configuration-alias config)
+               (#f (cons current expanded-configs))
+               (alias (cons* (cons (configuration-alias config) config)
+                        (cons name config)
+                        expanded-configs))))))
+        '()
+        configs))
+
 (define (establish-subcommands configuration cli-params)
   "Return a breadcrumb trail leading to the requested subcommand that is part
 of CONFIGURATION and requested by CLI-PARAMS."
   (let establish ((free-params (derive-free-params configuration cli-params))
                   (subcommands '())
-                  (configs     (configuration-configs configuration)))
+                  ;; We expand-configs to handle the use of aliases on the
+                  ;; commandline.  Expanding ensures an alias will match to
+                  ;; its appropriate configuration.
+                  (configs     (expand-configs
+                                (configuration-configs configuration))))
     (match free-params
       (((? string? candidate) . rest)
        (match (assq (string->symbol candidate) configs)
-         ((k . ($ <configuration> _ _ opts configs _ _))
-          (establish rest (cons (string->symbol candidate) subcommands)
-                     configs))
+         ((k . ($ <configuration> name _ opts configs _ _))
+          (establish rest (cons name subcommands)
+                     (expand-configs configs)))
          ;; Could be #f or an <option>
          (_ (reverse subcommands))))
       ;; We have no free params (i.e. no subcommand specified).

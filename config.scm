@@ -163,11 +163,21 @@ so and emit it to PORT."
       (((names . (? option? opts)) ...)
        ;; Short Help
        (format port "Usage: ~a ~a~%"
-               (symbol->string (configuration-name config))
+               (string-append (symbol->string (configuration-name config))
+                              (match (configuration-alias config)
+                                (#f "")
+                                (alias
+                                 (string-append " | "
+                                                (symbol->string alias)))))
                (sort-opts (filter-opts opts)
                           (+ (string-length "Usage: ")
                              (string-length (symbol->string
                                              (configuration-name config)))
+                             (match (configuration-alias config)
+                               (#f 0)
+                               (alias
+                                (+ (string-length " | ")
+                                   (string-length (symbol->string alias)))))
                              1)))
        ;; Detailed Help
        (format port "~%Options:~%~a~%"
@@ -209,7 +219,7 @@ There is NO WARRANTY, to the extent permitted by law."))
 
 (define* (define-configuration name terse values #:key config-dir
            long help? usage? version? license copyright author
-           (version-test? string?) (parser simple-parser))
+           (version-test? string?) (parser simple-parser) (alias #f))
   "Return a configuration.  NAME should be a symbol naming the configuration.
 TERSE is a < 40 char description; VALUES is a list of config-options.  The
 optional arguments:
@@ -229,7 +239,9 @@ version option in VALUES.
 If omitted, this will default to `string?'.
  - PARSER: the configuration file parser we will use to write and read the
 configuration file associated with this configuration.  It defaults to
-SIMPLE-PARSER."
+SIMPLE-PARSER.
+ - ALIAS: an additional name for this configuration, generally intended as a
+shorter alternative to the full name."
   ;; If we have been provided with convenience option values, we should
   ;; augment our configuration-options before finally instantiating
   ;; <configuration>.
@@ -323,7 +335,11 @@ SIMPLE-PARSER."
            ,(match parser
               ((? configuration-parser?) parser)
               (_ (throw 'config-spec
-                        "PARSER should be a configuration parser."))))))
+                        "PARSER should be a configuration parser.")))
+           ,(match alias
+              ((or (? symbol?) #f) alias)
+              (_ (throw 'config-spec
+                        "ALIAS should be a symbol, if specified."))))))
 
 
 ;;;; Plumbing
@@ -451,26 +467,52 @@ the subcommands contained in CONFIGS."
   ;;   command1        command-terse
   ;;   command2        command-terse
   ;;   command3        command-terse
-  ;; [2 spaces][padded name longest][4 spaces][2 spaces]terse
+  ;; [2 spaces][padded name longest][ | padded alias longest-alias]terse
+  ;; FIXME: Re-factor!
   (string-join
    (match (fold (lambda (conf result)
-                  ;; result: `(((conf-name . terse) ...) . longest)
+                  ;; result: `(((conf-name alias terse) ...) longest longest-alias)
                   (match result
-                    ((confs . longest)
+                    ((confs longest longest-alias)
                      (match conf
-                       ((name . ($ <configuration> n _ _ _ t))
+                       ((name . ($ <configuration> n _ _ _ t _ _ a))
                         (match (symbol->string n)
                           ((? (compose (cut > <> longest) string-length) n)
-                           `(((,n . ,t) . ,confs) . ,(string-length n)))
-                          (n `(((,n . ,t) . ,confs) . ,longest))))))))
-                '(() . 0) configs)
-     ((conf-specs . longest)
-      (sort (map (lambda (spec)
-                   (match spec
-                     ((n . t)
-                      (string-append "  " (padded n longest)
-                                     "    " "  " t))))
-                 conf-specs)
+                           `(((,n ,(if a (symbol->string a) a) ,t) . ,confs)
+                             ,(string-length n)
+                             ,(if a
+                                  (match (symbol->string a)
+                                    ((? (compose (cut > <> longest-alias)
+                                                 string-length) a)
+                                     (string-length a))
+                                    (else longest-alias))
+                                  longest-alias)))
+                          (n `(((,n ,(if a (symbol->string a) a) ,t) . ,confs)
+                               ,longest
+                               ,(if a
+                                    (match (symbol->string a)
+                                      ((? (compose (cut > <> longest-alias)
+                                                   string-length) a)
+                                       (string-length a))
+                                      (else longest-alias))
+                                    longest-alias)))))))))
+                '(() 0 0) configs)
+     ((conf-specs longest longest-alias)
+      (sort
+       (map (lambda (spec)
+              (match spec
+                ((n a t)
+                 (string-append "  " (padded n longest)
+                                (match a
+                                  (#f
+                                   (string-append "   "
+                                                  (padded "" longest-alias)))
+                                  (a (string-append " | "
+                                                    (padded a
+                                                            longest-alias))))
+                                "  "
+                                t))))
+            conf-specs)
             string-ci<=?))
      (() '()))
    "\n"))
