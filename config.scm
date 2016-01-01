@@ -393,13 +393,14 @@ augmented by the configuration values from its configuration file."
   (define (read-merge config)
     "Read the configuration file for CONFIG and return an augmented config in
 the %io-monad."
-    (mlet* %io-monad
-        (;; We must anticipate the file not existing — what happens to
-         ;; set-io-input-file?
-         (old-io (set-io-input-file (configuration-file config)))
-         (config (configuration-read config))
-         (ignore (io-close-input-port old-io)))
-      (return config)))
+    (if (and (configuration-file config)
+             (any open-option? (configuration-options config)))
+        (mlet* %io-monad
+            ((old-io (set-io-input-file (configuration-file config)))
+             (config (configuration-read config))
+             (ignore (io-close-input-port old-io)))
+          (return config))
+        (with-monad %io-monad (return config))))
   (define (find-subconfiguration configuration config-name)
     "Return the subconfiguration in CONFIGURATION specified by CONFIG-NAME."
     (match (assq config-name (configuration-configs configuration))
