@@ -429,7 +429,9 @@ that do not exist.
 Return values is unspecified in the io-monad."
   (define (ensure config)
     (if (or (not (configuration-file config))
-            (file-exists? (configuration-file config)))
+            (file-exists? (configuration-file config))
+            (every (negate open-option?)
+                   (configuration-options configuration)))
         (with-monad %io-monad (return '()))
         (mlet* %io-monad
             ((ignore  (iomkdir-p (configuration-dir config)))
