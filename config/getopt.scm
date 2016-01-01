@@ -195,7 +195,9 @@ apply."
 REQUIRED."
   (define (value-entry)
     (match (procedure-name test)
+      ;; If our test is boolean, we parse params as flags
       ('boolean? '((value #f)))
+      ;; If optional?, parse param value as flag or value.
       (_  (if optional?
               '((value optional))
               '((value #t))))))
