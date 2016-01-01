@@ -117,6 +117,7 @@
             author-maker
             check-name
             copyright-maker
+            license
             license-maker
             license->string
             license?
@@ -381,8 +382,6 @@ have to take an argument."
 
 
 ;;;; Configuration
-;;;
-;;; FIXME: should name & alias be strings?
 
 (define-immutable-record-type <configuration>
   (mecha-configuration name dir options configs terse long parser alias)
@@ -468,11 +467,15 @@ application."
   (match obj
     ('gplv3+ (cons (license-gplv3+) values))
     ('agplv3+ (cons (license-agplv3+) values))
-    ((? license?) (cons license values))
-    ((? string?) (cons (license-generic license) values))
+    ((? string?) (cons (license-generic obj) values))
+    ((? license?) (cons (define-private-option 'license
+                          "The license of this project."
+                          #:value obj
+                          #:test license?)
+                        values))
     (_ (throw 'license-maker
-              "Invalid LICENSE: should be 'gplv3+, a license object or a
-string naming a license."))))
+              "Invalid LICENSE: should be 'gplv3+, 'agplv3+, a license object
+or a string naming a license."))))
 
 (define (license->string license)
   "Turn <license> LICENSE into a string for summary and/or printing."
