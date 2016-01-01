@@ -468,53 +468,42 @@ the subcommands contained in CONFIGS."
   ;;   command2        command-terse
   ;;   command3        command-terse
   ;; [2 spaces][padded name longest][ | padded alias longest-alias]terse
-  ;; FIXME: Re-factor!
+  (define (conf-spec name alias terse confs longest longest-alias)
+    ;; result: '(((conf-name alias terse) ...) longest longest-alias)
+    (list (cons (list name alias terse) confs)
+          longest
+          (if ((compose (cut > <> longest-alias) string-length) alias)
+              (string-length alias)
+              longest-alias)))
   (string-join
    (match (fold (lambda (conf result)
-                  ;; result: `(((conf-name alias terse) ...) longest longest-alias)
                   (match result
                     ((confs longest longest-alias)
                      (match conf
-                       ((name . ($ <configuration> n _ _ _ t _ _ a))
-                        (match (symbol->string n)
-                          ((? (compose (cut > <> longest) string-length) n)
-                           `(((,n ,(if a (symbol->string a) a) ,t) . ,confs)
-                             ,(string-length n)
-                             ,(if a
-                                  (match (symbol->string a)
-                                    ((? (compose (cut > <> longest-alias)
-                                                 string-length) a)
-                                     (string-length a))
-                                    (else longest-alias))
-                                  longest-alias)))
-                          (n `(((,n ,(if a (symbol->string a) a) ,t) . ,confs)
-                               ,longest
-                               ,(if a
-                                    (match (symbol->string a)
-                                      ((? (compose (cut > <> longest-alias)
-                                                   string-length) a)
-                                       (string-length a))
-                                      (else longest-alias))
-                                    longest-alias)))))))))
-                '(() 0 0) configs)
+                       ((name . ($ <configuration> (= symbol->string n) _ _ _
+                                                   t _ _
+                                                   (= symbol->string a)))
+                        (if ((compose (cut > <> longest) string-length) n)
+                            (conf-spec n a t confs (string-length n)
+                                       longest-alias)
+                            (conf-spec n a t confs longest
+                                       longest-alias)))))))
+                '(() 0 0)
+                configs)
      ((conf-specs longest longest-alias)
       (sort
-       (map (lambda (spec)
-              (match spec
-                ((n a t)
-                 (string-append "  " (padded n longest)
-                                (match a
-                                  (#f
-                                   (string-append "   "
-                                                  (padded "" longest-alias)))
-                                  (a (string-append " | "
-                                                    (padded a
-                                                            longest-alias))))
-                                "  "
-                                t))))
+       (map (match-lambda
+              ((name alias terse)
+               (string-append "  " (padded name longest)
+                              (match alias
+                                (#f (string-append "   "
+                                                   (padded "" longest-alias)))
+                                (a (string-append " | "
+                                                  (padded a longest-alias))))
+                              "  "
+                              terse)))
             conf-specs)
-            string-ci<=?))
-     (() '()))
+       string-ci<=?)))
    "\n"))
 
 (define (sort-detailed-opts opts)
