@@ -293,11 +293,11 @@ shorter alternative to the full name."
               ((and (? string?) (? absolute-file-name?)) config-dir)
               (#f
                ;; We have no config file, so only proceed if we have no values
-               ;; to be; written to it.
-               (if (null? (filter open-option? values))
-                   config-dir
+               ;; to be written to it.
+               (if (any open-option? values)
                    (throw 'config-spec
-                          "Open options specified, but no config-dir!")))
+                          "Open options specified, but no config-dir!")
+                   config-dir))
               ;; We've been given something odd for config-dir.
               (_ (throw 'config-spec
                         "CONFIG-DIR should be an absolute filepath, or #f.")))
@@ -326,9 +326,10 @@ shorter alternative to the full name."
                  (_ (throw 'config-spec
                                    "Invalid option in configuration."))))
            ,(match terse
-              ;; FIXME: Also test whether shorter than max-length!
-              ((? string?) terse)
-              (_ (throw 'config-spec "TERSE should be a string.")))
+              ((and (? string?) (? (compose (cut <= <> 40) string-length)))
+               terse)
+              (_ (throw 'config-spec
+                        "TERSE should be a string of length less than 40.")))
            ,(match long
               ((or (? string?) #f) long)
               (_ (throw 'config-spec "LONG should be a string, or #f.")))
