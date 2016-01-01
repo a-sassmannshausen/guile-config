@@ -516,29 +516,30 @@ the subcommands contained in CONFIGS."
     --name     -n   Name of user
     --target   -t   Target of game
     --zulu          Bogus option"
+  (define (opt-spec name single-char terse opts longest)
+    ;; result: `(((name single-char terse) ...) . longest)
+    (cons (cons (list name single-char terse) opts)
+          longest))
   (string-join
    (match (fold (lambda (opt result)
-                  ;; result: `(opts . longest)
                   (match result
                     ((opts . longest)
                      (match opt
-                       ((or ($ <puboption> n _ _ _ s t)
-                            ($ <openoption> n _ _ _ s t))
-                        (match (symbol->string n)
-                          ((? (compose (cut > <> longest) string-length) n)
-                           (cons (cons (list n s t) opts) (string-length n)))
-                          (n (cons (cons (list n s t) opts) longest))))))))
+                       ((or ($ <puboption> (= symbol->string n) _ _ _ s t)
+                            ($ <openoption> (= symbol->string n) _ _ _ s t))
+                        (if ((compose (cut > <> longest) string-length) n)
+                            (opt-spec n s t opts (string-length n))
+                            (opt-spec n s t opts longest)))))))
                 '(() . 0)
                 opts)
      ((opt-specs . longest)
-      (sort (map (lambda (spec)
-                   (match spec
-                     ((n s t)
-                      (string-append "  --" (padded n longest)
-                                     (if s
-                                         (string-append "  -" (string s))
-                                         "    ")
-                                     "  " t))))
+      (sort (map (match-lambda
+                   ((n s t)
+                    (string-append "  --" (padded n longest)
+                                   (if s
+                                       (string-append "  -" (string s))
+                                       "    ")
+                                   "  " t)))
                  opt-specs)
             string-ci<=?)))
    "\n"))
@@ -575,33 +576,30 @@ This formatting is intended for the brief summary of our command."
                        (match opt
                          ((or ($ <puboption> n v t _ s _ _ e)
                               ($ <openoption> n v t _ s _ _ e))
-                          (cond ((and s (boolproc? t)) ; short bool
-                                 (list (cons s short-bools) long-bools
-                                       short-rest long-rest))
-                                ((boolproc? t) ; long bools
-                                 (list short-bools
-                                       (cons (string-append "[--"
-                                                            (symbol->string n)
-                                                            "]")
-                                             long-bools)
-                                       short-rest
-                                       long-rest))
-                                (s
-                                 (list short-bools
-                                       long-bools
-                                       (cons (string-append "[-"
-                                                            (string s)
-                                                            " " e "]")
-                                             short-rest)
-                                       long-rest))
-                                (else
-                                 (list short-bools
-                                       long-bools
-                                       short-rest
-                                       (cons (string-append "[--"
-                                                            (symbol->string n)
-                                                            "=" e "]")
-                                             long-rest)))))
+                          (let ((n (symbol->string n)))
+                            (cond ((and s (boolproc? t)) ; short bool
+                                   (list (cons s short-bools) long-bools
+                                         short-rest long-rest))
+                                  ((boolproc? t) ; long bools
+                                   (list short-bools
+                                         (cons (string-append "[--" n "]")
+                                               long-bools)
+                                         short-rest
+                                         long-rest))
+                                  (s
+                                   (list short-bools
+                                         long-bools
+                                         (cons (string-append "[-"
+                                                              (string s)
+                                                              " " e "]")
+                                               short-rest)
+                                         long-rest))
+                                  (else
+                                   `(,short-bools
+                                     ,long-bools
+                                     ,short-rest
+                                     ,(cons (string-append "[--" n "=" e "]")
+                                            long-rest))))))
                          (_ (throw 'config "Should not have happened"))))))
                   '(() () () ())
                   opts)))
