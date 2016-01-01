@@ -217,6 +217,16 @@ do so and emit it to PORT."
           "This is free software: you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law."))
 
+;;; FIXME: We should have a way to parse non-keyword args  [Version 0.9.5?]
+;;;        We should do this by:
+;;; - adding additional field to configuration (argument-pattern) — which
+;;;   should be a simple `match' spec.
+;;; - adding additional logic to getopt parse, to match above field, and add
+;;;   it to resulting values list
+;;; - allow use of option-ref to access these
+;;; - add logic to configuration-spec compiler, to check that keys in each
+;;;   configuration, including from `argument spec' are unique (meaningful
+;;;   error if not).
 (define* (define-configuration name terse values #:key config-dir
            long help? usage? version? license copyright author
            (version-test? string?) (parser simple-parser) (alias #f))

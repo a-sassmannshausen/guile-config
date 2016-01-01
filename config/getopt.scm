@@ -116,6 +116,13 @@ of further collapsing CONFIGS, if CONFIGS is not null."
 (define (establish-subcommands configuration cli-params)
   "Return a breadcrumb trail leading to the requested subcommand that is part
 of CONFIGURATION and requested by CLI-PARAMS."
+  ;; FIXME: currently, a free-param to a program that accidentally matches the
+  ;; first subcommand name, will trigger that subcommand rather than acting as
+  ;; that command's free-param.
+  ;; Alternatively, correctly implementing the special '--' param would allow
+  ;; us to fully deal with the above problem, and would allow us to retain the
+  ;; current flexibility (mixed cli-params, subcommands) [and the current
+  ;; cost].
   (let establish ((free-params (derive-free-params configuration cli-params))
                   (subcommands '())
                   ;; We expand-configs to handle the use of aliases on the
