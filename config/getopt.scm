@@ -56,6 +56,33 @@
 (define (config->getopt-long config cli-params)
   (getopt-long cli-params (configuration->getopt-spec config)))
 
+;;;;; This procedure is only for the purpose of subcommand derivation.
+;;; It will return a wrong result in the following specific case:
+;;; - Configuration
+;;; - Contains nested sub-configurations
+;;; - 2 options anywhere within the configuration, we have the same option
+;;;   named identically, one of which is a boolean flag, the other of which is
+;;;   a value taking param.
+;;; - The cli-params contain a value after the named flag above.
+;;; If the boolean was defined before the value taking, the value after the
+;;; flag will be considered a free param, even if it was intended as a
+;;; value taking.
+;;; If the value taking was defined before the boolean, the value after the
+;;; flag will be considered the value for the boolean, even if it was
+;;; intended as a boolean.
+;;;
+;;; The former will be a problem for subcommand derivation if the subcommand
+;;; is specified after the value taking command line option: our subcommand
+;;; parsing algorithm will fail to spot the actual subcommand invoked as it is
+;;; hidden by the false first free param.
+;;;
+;;; The latter will be a problem for subcommand derivation if the subcommand
+;;; is specified precisely after the boolean command line option: the
+;;; subcommand name will be taken to be the value for the false value taking
+;;; param.
+;;;
+;;; Both these cases are illustrated by tests in the tests file, (the tests
+;;; are examples, and thus pass).
 (define (derive-free-params config cli-params)
   "Return the free parameters, i.e. non key-word arguments, contained in
 CLI-PARAMS with respect to CONFIG."
@@ -68,12 +95,18 @@ CLI-PARAMS with respect to CONFIG."
   (define (clear-validation opt)
     "Return a new version of OPT that is stripped of all validation."
     (match opt
-      ((name . ($ <openoption> name value _ _ single-char))
+      ((name . ($ <openoption> name value test _ single-char))
        (cons name (define-open-option name "" #:single-char single-char
-                    #:test (const #t) #:optional? #t #:value value)))
-      ((name . ($ <puboption> name value _ _ single-char))
+                    #:test (if (eq? (procedure-name test) 'boolean?)
+                               test
+                               (const #t))
+                    #:optional? #t #:value value)))
+      ((name . ($ <puboption> name value test _ single-char))
        (cons name (define-public-option name "" #:single-char single-char
-                    #:test (const #t) #:optional? #t #:value value)))
+                    #:test (if (eq? (procedure-name test) 'boolean?)
+                               test
+                               (const #t))
+                    #:optional? #t #:value value)))
       ((name . (? private-option?)) opt)))
   (define (collapse configs options)
     "Return either OPTIONS, or the product of appending to OPTIONS the result
