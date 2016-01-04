@@ -1,7 +1,7 @@
 ;;; Config Parser --- A simple scheme config format
 ;;; Copyright © 2015 Alex Sassmannshausen <alex@pompo.co>
 ;;;
-;;; This file is part of Config.
+;;; This file is part of Guile-Config.
 ;;;
 ;;; Config is free software; you can redistribute it and/or modify it under
 ;;; the terms of the GNU General Public License as published by the Free
@@ -14,7 +14,7 @@
 ;;; details.
 ;;;
 ;;; You should have received a copy of the GNU General Public License
-;;; along with glean; if not, contact:
+;;; along with Guile-Config; if not, contact:
 ;;;
 ;;; Free Software Foundation           Voice:  +1-617-542-5942
 ;;; 59 Temple Place - Suite 330        Fax:    +1-617-542-2652

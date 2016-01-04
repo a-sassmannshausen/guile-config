@@ -1,11 +1,11 @@
 ;; config.scm --- The config module    -*- coding: utf-8 -*-
 ;;
-;; Copyright (C) 2014 Alex Sassmannshausen <alex.sassmannshausen@gmail.com>
+;; Copyright (C) 2014 Alex Sassmannshausen <alex@pompo.co>
 ;;
-;; Author: Alex Sassmannshausen <alex.sassmannshausen@gmail.com>
+;; Author: Alex Sassmannshausen <alex@pompo.co>
 ;; Created: 12 July 2015
 ;;
-;; This file is part of Glean.
+;; This file is part of Guile-Config.
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Affero General Public License as published by

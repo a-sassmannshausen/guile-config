@@ -1,8 +1,8 @@
 ;; config.scm --- tests for config    -*- coding: utf-8 -*-
 ;;
-;; Copyright (C) 2014 Alex Sassmannshausen <alex.sassmannshausen@gmail.com>
+;; Copyright (C) 2014 Alex Sassmannshausen <alex@pompo.co>
 ;;
-;; Author: Alex Sassmannshausen <alex.sassmannshausen@gmail.com>
+;; Author: Alex Sassmannshausen <alex@pompo.co>
 ;; Created: 23 November 2015
 ;;
 ;; This file is part of Config.
