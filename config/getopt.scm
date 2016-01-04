@@ -185,15 +185,15 @@ and CLI-VALUE, or just the original configuration-value OPTION-NAME."
   "Return the getopt-long option-spec corresponding to CONFIG.  Any private
 options will be ignored, as they have no getopt-long config (they have no
 commandline capability)."
-  (filter identity (map option->getopt-spec (configuration-options config))))
-
-(define (option->getopt-spec option)
-  "Return the getopt-long option-spec for OPTION, or #f if it does not
-apply."
-  (match option
-    ((name . (? public-option? opt))  (puboption->getopt-spec opt))
-    ((name . (? private-option?)) #f)
-    ((name . (? open-option? opt))    (openoption->getopt-spec opt))))
+  (reverse (fold (lambda (opt converted)
+                   (match opt
+                     ((name . (? public-option? opt))
+                      (cons (puboption->getopt-spec opt) converted))
+                     ((name . (? open-option? opt))
+                      (cons (openoption->getopt-spec opt) converted))
+                     (_ converted)))
+                 '()
+                 (configuration-options config))))
 
 (define* (getopt-spec name test handler single-char optional?
                       #:optional required)
