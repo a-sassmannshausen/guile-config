@@ -162,6 +162,10 @@ GETOPTS (normally the list of commandline arguments to a program) into
 which returns an updated configuration-value if an updated values is present
 in the getopt-long interface GETOPTS.  Otherwise that procedure will simply
 return the original configuration-value."
+  (define (opt-if setter cli-value option-name handler)
+    "Return either a new configuration-value built with SETTER, OPTION-NAME
+and CLI-VALUE, or just the original configuration-value OPTION-NAME."
+    (if cli-value (setter option-name (handler cli-value)) option-name))
   (lambda (config-val)
     (match config-val
       ((name . (? public-option? opt))
@@ -171,11 +175,6 @@ return the original configuration-value."
        (cons name (opt-if set-openoption-value (option-ref getopts name #f)
                           opt (openoption-cli-handler opt))))
       (_ config-val))))
-
-(define (opt-if setter cli-value option-name handler)
-  "Return either a new configuration-value built with SETTER, OPTION-NAME and
-CLI-VALUE, or just the original configuration-value OPTION-NAME."
-  (if cli-value (setter option-name (handler cli-value)) option-name))
 
 
 ;;;; Configuration Spec parsing
