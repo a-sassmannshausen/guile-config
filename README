@@ -9,5 +9,5 @@
   - Command-line parameter parsing using getopt-long
   - Basic GNU command-line parameter generation (--help, --usage, --version)
   - Output generation for (compiled from the configuration declaration):
-    + --help and --usage 
+    + --help and --usage
     + --version
