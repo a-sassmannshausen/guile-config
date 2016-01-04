@@ -108,7 +108,7 @@ of further collapsing CONFIGS, if CONFIGS is not null."
              (match (configuration-alias config)
                (#f (cons current expanded-configs))
                (alias (cons* (cons (configuration-alias config) config)
-                        (cons name config)
+                        current
                         expanded-configs))))))
         '()
         configs))
