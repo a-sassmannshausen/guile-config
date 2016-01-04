@@ -302,10 +302,12 @@
           (define-open-option 'tst "" #:value 5 #:test number?
             #:cli-handler string->number)
           (define-open-option 'optional "" #:value #f
-            #:test (match-lambda ((or #f #t (? number?) #t) (_ #f)))
+            #:test (match-lambda
+                     ((or #f #t (? number?)) #t)
+                     (_ #f))
             #:cli-handler (match-lambda
-                            (((? boolean? b) b)
-                             ((? string? str) (string->number str))))
+                            ((? boolean? b) b)
+                            ((? string? str) (string->number str)))
             #:optional? #t))
          ;; Outputs
          (list
@@ -348,10 +350,12 @@
           (define-public-option 'tst "" #:value 5 #:test number?
             #:handler string->number)
           (define-public-option 'optional "" #:value #f
-            #:test (match-lambda ((or #f #t (? number?) #t) (_ #f)))
+            #:test (match-lambda
+                     ((or #f #t (? number?)) #t)
+                     (_ #f))
             #:handler (match-lambda
-                        (((? boolean? b) b)
-                         ((? string? str) (string->number str))))
+                        ((? boolean? b) b)
+                        ((? string? str) (string->number str)))
             #:optional? #t))
          ;; Outputs
          (list
@@ -404,7 +408,9 @@
              ('value #t))
       ('ocsv ('predicate (? procedure?))
              ('required? #f)
-             ('value #t))))))
+             ('value #t)))
+     #t)
+    (_ #f)))
 
 (test-end "getopt")
 
