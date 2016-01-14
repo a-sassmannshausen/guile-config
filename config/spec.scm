@@ -41,7 +41,7 @@
             set-prioption-terse
             prioption-long
             set-prioption-long
-            define-private-option
+            private-option
 
             <puboption>
             public-option?
@@ -61,7 +61,7 @@
             set-puboption-long
             puboption-optional
             set-puboption-optional
-            define-public-option
+            public-option
 
             <openoption>
             open-option?
@@ -81,7 +81,7 @@
             set-openoption-long
             openoption-optional
             set-openoption-optional
-            define-open-option
+            open-option
 
             option?
 
@@ -145,7 +145,7 @@
 ;;; An application generally declares a "version".  This version can
 ;;; be specified using a private value.  They could specify this in
 ;;; the following way:
-;;; (define-private-option version
+;;; (private-option version
 ;;;   "This application's version string"
 ;;;   #:value "1.0"
 ;;;   #:test string?
@@ -163,7 +163,7 @@
 ;;; An application may want to implement the "--version" commandline
 ;;; option.  We will refer to the version private option value, and by
 ;;; default have this setting disabled.
-;;; (define-public-option version-flag
+;;; (public-option version-flag
 ;;;   "Emit this application's version string."
 ;;;   #:value #f
 ;;;   #:test boolean?
@@ -184,7 +184,7 @@
 ;;; For instance we may wish to provide a default log-level of 3,
 ;;; which the end-user can override in configuration files and each
 ;;; run by commandline specification.
-;;; (define-open-option log-level
+;;; (open-option log-level
 ;;;  "Determines the verbosity of our log output."
 ;;;  #:value 3
 ;;;  #:test integer?
@@ -226,15 +226,15 @@
 ;;; the sub-command (print: style:pretty; user:frob).
 ;;;
 ;;; This would be defined as follows:
-;;; (define-configuration "foo"
+;;; (configuration "foo"
 ;;;  "Base configuration for the 'foo' program."
-;;;  (list (define-configuration "bar"
+;;;  (list (configuration "bar"
 ;;;         "Configuration for the 'bar' subcommand."
 ;;;         #:config-dir "path/to/config/dir"
-;;;         (list (define-open-option "style" ...)
-;;;               (define-public-option "user" ...)))
-;;;        (define-public-option "log-level" ...)
-;;;        (define-public-option "dry-run" ...)))
+;;;         (list (open-option "style" ...)
+;;;               (public-option "user" ...)))
+;;;        (public-option "log-level" ...)
+;;;        (public-option "dry-run" ...)))
 ;;;
 ;;; As the base configuration provides no open-options, it has no need
 ;;; for a configuration file: the #:config-dir option can be ommitted.
@@ -269,8 +269,8 @@
   (terse prioption-terse set-prioption-terse)
   (long prioption-long set-prioption-long))
 
-(define* (define-private-option name terse #:key long
-           (value '<unset>) (test boolean?))
+(define* (private-option name terse #:key long (value '<unset>)
+                         (test boolean?))
   "Return a Private Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
@@ -300,9 +300,9 @@ TERSE should be a < 40 char decsription.
   (example puboption-example set-puboption-example)
   (optional puboption-optional set-puboption-optional))
 
-(define* (define-public-option name terse #:key long
-           (value '<unset>) single-char (test boolean?) (handler identity)
-           (example "VALUE") optional?)
+(define* (public-option name terse #:key long (value '<unset>) single-char
+                        (test boolean?) (handler identity) (example "VALUE")
+                        optional?)
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
@@ -345,9 +345,9 @@ have to take an argument."
   (example openoption-example set-openoption-example)
   (optional openoption-optional set-openoption-optional))
 
-(define* (define-open-option name terse #:key single-char
-           (value '<unset>) (test boolean?) (cli-handler identity) long
-           (example "VALUE") optional?)
+(define* (open-option name terse #:key single-char (value '<unset>)
+                      (test boolean?) (cli-handler identity) long
+                      (example "VALUE") optional?)
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
@@ -438,7 +438,7 @@ TEST."
   "An option definition providing a configuration-spec version for the
 program. Including this in a config spec will also generate GNU
 compliant --version output."
-  (define-public-option 'version
+  (public-option 'version
     terse
     #:single-char #\V
     #:value #f
@@ -448,7 +448,7 @@ compliant --version output."
                          (terse "The version of our application."))
   "A procedure to define a hidden option containing the version of our
 application."
-  (define-private-option 'version-number
+  (private-option 'version-number
     terse
     #:value version
     #:test test))
@@ -468,7 +468,7 @@ application."
     ('gplv3+ (cons (license-gplv3+) values))
     ('agplv3+ (cons (license-agplv3+) values))
     ((? string?) (cons (license-generic obj) values))
-    ((? license?) (cons (define-private-option 'license
+    ((? license?) (cons (private-option 'license
                           "The license of this project."
                           #:value obj
                           #:test license?)
@@ -488,14 +488,14 @@ or a string naming a license."))))
 
 (define (license-generic name)
   "Generate a simple <license> out of NAME."
-  (define-private-option 'license
+  (private-option 'license
     "The license of this project."
     #:value (license #f name #f)
     #:test license?))
 
 (define (license-gplv3+)
   "Return a <license> representing the GPLv3+."
-  (define-private-option 'license
+  (private-option 'license
     "The license of this project."
     #:value (license "GPLv3+" "GNU GPL version 3 or later"
                      "http://gnu.org/licenses/gpl.html")
@@ -503,7 +503,7 @@ or a string naming a license."))))
 
 (define (license-agplv3+)
   "Return a <license> representing the AGPLv3+."
-  (define-private-option 'license
+  (private-option 'license
     "The license of this project."
     #:value (license "AGPLv3+" "GNU AGPL version 3 or later"
                      "http://gnu.org/licenses/agpl.html")
@@ -513,7 +513,7 @@ or a string naming a license."))))
 
 (define (copyright-maker years)
   "Return a private option representing the YEARS of copyright for a project."
-  (define-private-option 'copyright
+  (private-option 'copyright
     "The years for which we claim copyright."
     #:value years
     #:test (lambda (x) (match x (((? integer? years) ...) #t) (_ #f)))))
@@ -522,7 +522,7 @@ or a string naming a license."))))
 
 (define (author-maker author)
   "Return a private option detailing the AUTHOR of this project."
-  (define-private-option 'author
+  (private-option 'author
     "The author of this project."
     #:value author
     #:test string?))
@@ -532,7 +532,7 @@ or a string naming a license."))))
 (define (help)
   "An option definition ensuring we have GNU coding standard compliant
 help output."
-  (define-public-option 'help
+  (public-option 'help
     "Display a help message, then exit."
     #:single-char #\h
     #:value #f
@@ -543,7 +543,7 @@ help output."
 (define (usage)
   "An option definition ensuring we have GNU coding standard compliant
 help output."
-  (define-public-option 'usage
+  (public-option 'usage
     "Display a help message, then exit."
     #:single-char #\u
     #:value #f

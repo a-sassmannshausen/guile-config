@@ -43,22 +43,22 @@
   )
 
 (define test-config
-  (define-configuration 'test-config
+  (configuration 'test-config
     "Test configuration."
-    (list (define-public-option 'bool
+    (list (public-option 'bool
             "A to be flattened option"
             #:value #f)
-          (define-private-option 'pritest
+          (private-option 'pritest
                   "A private test, this should be ignored."
                   #:value "hello"
                   #:test string?)
-          (define-public-option 'num
+          (public-option 'num
             "A to be flattened option"
             #:value 0
             #:test number?
             #:single-char #\n
             #:handler string->number)
-          (define-public-option 'csv
+          (public-option 'csv
             "A to be flattened option"
             #:value '("hello" "world")
             #:test (match-lambda
@@ -66,15 +66,15 @@
                      (_ #f))
             #:handler (lambda (csv)
                         (string-split csv #\,)))
-          (define-open-option 'obool
+          (open-option 'obool
             "Open option"
             #:value #f)
-          (define-open-option 'onum
+          (open-option 'onum
             "A to be flattened option"
             #:value 0
             #:test number?
             #:cli-handler string->number)
-          (define-open-option 'ocsv
+          (open-option 'ocsv
             "A to be flattened option"
             #:value '("hello" "world")
             #:test (match-lambda
@@ -116,31 +116,31 @@
   (every (lambda (input output)
            (equal? 
             ((@@ (config getopt) derive-free-params)
-             (define-configuration 'test
+             (configuration 'test
                "Test config."
                (list
-                (define-public-option 'root-bool
+                (public-option 'root-bool
                   "Root bool option."
                   #:value #f)
-                (define-private-option 'pritest
+                (private-option 'pritest
                   "A private test, this should be ignored."
                   #:value "hello"
                   #:test string?)
-                (define-configuration 'level2
+                (configuration 'level2
                   "Level 2 config."
                   (list
-                   (define-public-option 'level2-bool
+                   (public-option 'level2-bool
                      "Level 2 bool option."
                      #:value #t)
-                   (define-public-option 'level2-number
+                   (public-option 'level2-number
                      "Level 2 Number option."
                      #:value 5
                      #:handler string->number
                      #:test number?)
-                   (define-configuration 'level3
+                   (configuration 'level3
                      "Level 3 config."
                      (list
-                      (define-public-option 'level3-bool
+                      (public-option 'level3-bool
                         "Level 3 bool option."
                         #:value #t)))))))
              input)
@@ -158,16 +158,16 @@
 ;; Boolean, then value taking, problem
 (test-assert "Derive-free-params boolean/value-taking problem"
   ((@@ (config getopt) derive-free-params)
-   (define-configuration 'test
+   (configuration 'test
      "Test config."
      (list
-      (define-public-option 'root-bool
+      (public-option 'root-bool
         "Root bool option."
         #:value #f)
-      (define-configuration 'hidden-subcommand
+      (configuration 'hidden-subcommand
         "Level 2 config."
         (list
-         (define-public-option 'root-bool
+         (public-option 'root-bool
            "Root bool option."
            #:value 5
            #:handler string->number
@@ -177,18 +177,18 @@
 ;; Value-taking, then boolean, problem.
 (test-assert "Derive-free-params value-taking/boolean problem"
   ((@@ (config getopt) derive-free-params)
-   (define-configuration 'test
+   (configuration 'test
      "Test config."
      (list
-      (define-public-option 'root-bool
+      (public-option 'root-bool
         "Root bool option."
         #:value 5
         #:handler string->number
         #:test number?)
-      (define-configuration 'disappeared-subcommand
+      (configuration 'disappeared-subcommand
         "Level 2 config."
         (list
-         (define-public-option 'root-bool
+         (public-option 'root-bool
            "Root bool option."
            #:value #f)
          ))))
@@ -198,25 +198,25 @@
 
 (test-assert "Expand-configs"
   (match ((@@ (config getopt) expand-configs)
-          `((level1 . ,(define-configuration 'level1
+          `((level1 . ,(configuration 'level1
                          "Level 1 config."
                          '()
                          #:alias 'lvl1))
-            (level2 . ,(define-configuration 'level2
+            (level2 . ,(configuration 'level2
                          "Level 2 config."
                          (list
-                          (define-public-option 'level2-bool
+                          (public-option 'level2-bool
                             "Level 2 bool option."
                             #:value #t)
-                          (define-public-option 'level2-number
+                          (public-option 'level2-number
                             "Level 2 Number option."
                             #:value 5
                             #:handler string->number
                             #:test number?))))
-            (level3 . ,(define-configuration 'level3
+            (level3 . ,(configuration 'level3
                          "Level 3 config."
                          (list
-                          (define-public-option 'level3-bool
+                          (public-option 'level3-bool
                             "Level 3 bool option."
                             #:value #t))
                          #:alias 'lvl3))))
@@ -233,19 +233,19 @@
 (test-assert "Establish subcommands"
   (every (lambda (input output)
            (equal? (establish-subcommands
-                    (define-configuration 'test
+                    (configuration 'test
                       "Test config."
                       (list
-                       (define-configuration 'level2
+                       (configuration 'level2
                          "Level 2 config."
                          (list
-                          (define-public-option 'hidden-option
+                          (public-option 'hidden-option
                             "A root-level hidden option."
                             #:value #t)
-                          (define-configuration 'level3
+                          (configuration 'level3
                             "Level 3 config."
                             (list
-                             (define-public-option 'hidden-option
+                             (public-option 'hidden-option
                                "A root-level hidden option."
                                #:value #t)))))))
                     input)
@@ -297,11 +297,11 @@
            (test ((@@ (config getopt) openoption->getopt-spec) in)))
          ;; Inputs
          (list
-          (define-open-option 'test "" #:single-char #\t #:value #f)
-          (define-open-option 'test "" #:single-char #\t #:value '<unset>)
-          (define-open-option 'tst "" #:value 5 #:test number?
+          (open-option 'test "" #:single-char #\t #:value #f)
+          (open-option 'test "" #:single-char #\t #:value '<unset>)
+          (open-option 'tst "" #:value 5 #:test number?
             #:cli-handler string->number)
-          (define-open-option 'optional "" #:value #f
+          (open-option 'optional "" #:value #f
             #:test (match-lambda
                      ((or #f #t (? number?)) #t)
                      (_ #f))
@@ -345,11 +345,11 @@
            (test ((@@ (config getopt) puboption->getopt-spec) in)))
          ;; Inputs
          (list
-          (define-public-option 'test "" #:single-char #\t #:value #f)
-          (define-public-option 'test "" #:single-char #\t #:value '<unset>)
-          (define-public-option 'tst "" #:value 5 #:test number?
+          (public-option 'test "" #:single-char #\t #:value #f)
+          (public-option 'test "" #:single-char #\t #:value '<unset>)
+          (public-option 'tst "" #:value 5 #:test number?
             #:handler string->number)
-          (define-public-option 'optional "" #:value #f
+          (public-option 'optional "" #:value #f
             #:test (match-lambda
                      ((or #f #t (? number?)) #t)
                      (_ #f))

@@ -46,28 +46,28 @@
 
 (test-begin "config")
 
-;;;;; Tests for: define-configuration
+;;;;; Tests for: configuration
 
 (test-assert "Configuration failures"
   (catch 'config-spec
     (lambda ()
-      (not (define-configuration 'test-configuration
+      (not (configuration 'test-configuration
              "A test configuration with a terse longer than 40 chars."
              '())))
         (lambda (k t)
           (string=? "TERSE should be a string of length less than 40." t))))
 
 (test-assert "Configuration creation."
-  (match (define-configuration 'test-configuration
+  (match (configuration 'test-configuration
            "A test configuration."
            (list
-            (define-private-option 'test-priopt
+            (private-option 'test-priopt
               "A test option"
               #:value 5)
-            (define-public-option 'test-pubopt
+            (public-option 'test-pubopt
               "A test option"
               #:value 5)
-            (define-open-option 'test-openopt
+            (open-option 'test-openopt
               "A test option"
               #:value 5))
            #:config-dir "/tmp"
@@ -90,24 +90,24 @@
 (test-assert "Configuration no config ok."
   ;; Config-dir, but no open-options -> no need for it
   (and (run-io ((@@ (config) merge-config-file-values)
-                (define-configuration 'test-config
+                (configuration 'test-config
                   "Test configuration."
-                  (list (define-public-option 'no-config
+                  (list (public-option 'no-config
                           "Pub, no config file needed."
                           #:value 'test)
-                        (define-private-option 'priv
+                        (private-option 'priv
                           "Private Option."
                           #:value 1))
                   #:config-dir "/tmp")
                 '()))
        ;; No config-dir, and no open-options
        (run-io ((@@ (config) merge-config-file-values)
-                (define-configuration 'test-config
+                (configuration 'test-config
                   "Test configuration."
-                  (list (define-public-option 'no-config
+                  (list (public-option 'no-config
                           "Pub, no config file needed."
                           #:value 'test)
-                        (define-private-option 'priv
+                        (private-option 'priv
                           "Private Option."
                           #:value 1)))
                 '()))))
@@ -117,10 +117,10 @@
 ;; (test-equal "Sort Subcommands"
 ;;   "  a      a\n  b      b\n  c      c\n  d      d"
 ;;   ((@@ (config) sort-subcommands)
-;;    (list (define-configuration 'd "d" '())
-;;          (define-configuration 'c "c" '())
-;;          (define-configuration 'b "b" '())
-;;          (define-configuration 'a "a" '()))))
+;;    (list (configuration 'd "d" '())
+;;          (configuration 'c "c" '())
+;;          (configuration 'b "b" '())
+;;          (configuration 'a "a" '()))))
 
 ;;;;; Tests for: getmio-config-auto
 
@@ -129,12 +129,12 @@
 (test-assert "Generate options"
   (run-io (getmio-config-auto
            '("script-name")
-           (define-configuration 'test-config
+           (configuration 'test-config
              "Test configuration."
-             (list (define-public-option 'no-config
+             (list (public-option 'no-config
                      "Pub, no config file needed."
                      #:value #f)
-                   (define-private-option 'priv
+                   (private-option 'priv
                      "Private Option."
                      #:value #f))
              #:help? #t
@@ -144,12 +144,12 @@
 (test-assert "Mandatory arg present."
   (run-io (getmio-config-auto
            '("script-name" "--no-config" "5")
-           (define-configuration 'test-config
+           (configuration 'test-config
              "Test configuration."
-             (list (define-public-option 'no-config
+             (list (public-option 'no-config
                      "Pub, no config file needed."
                      #:test string?)
-                   (define-private-option 'priv
+                   (private-option 'priv
                      "Private Option."
                      #:value #f))
              #:help? #t
@@ -160,13 +160,13 @@
 (test-assert "Create config-file"
   (begin
     (run-io ((@@ (config) ensure-config-files)
-             (define-configuration 'test-config
+             (configuration 'test-config
                "Test configuration."
-               (list (define-open-option 'config
+               (list (open-option 'config
                        "Open, config file needed."
                        #:value "test"
                        #:test string?)
-                     (define-private-option 'priv
+                     (private-option 'priv
                        "Private Option."
                        #:value #f))
                #:help? #t

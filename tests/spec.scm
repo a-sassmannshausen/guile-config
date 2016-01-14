@@ -59,10 +59,10 @@ This is used to test that we raise errors correctly."
 
 (test-begin "spec")
 
-;;;;; Tests for: define-private-option
+;;;;; Tests for: private-option
 
 (test-assert "prioption-creation"
-  (every (compose private-option? (cut apply define-private-option <>))
+  (every (compose private-option? (cut apply private-option <>))
          `((test "Test terse")
            (test "Test terse" #:test ,identity)
            (test "Test terse" #:value 5)
@@ -71,16 +71,16 @@ This is used to test that we raise errors correctly."
            (test "T" #:value #\x #:test ,+ #:long "L"))))
 
 (test-assert "prioption-fail"
-  (every (error-catcher define-private-option)
+  (every (error-catcher private-option)
          '(("test" "Test terse")               ; Faulty name
            (test "Test terse" #:test identity) ; Faulty test
            (test Test #:value 5)               ; Faulty terse
            (test "Terse" #:long Test))))       ; Faulty long
 
-;;;;; Tests for: define-public-option
+;;;;; Tests for: public-option
 
 (test-assert "puboption-creation"
-  (every (compose public-option? (cut apply define-public-option <>))
+  (every (compose public-option? (cut apply public-option <>))
         `((test "Test terse")
           (test "Terse" #:long "Test documentation.")
           (test "Test terse" #:single-char #\t)
@@ -89,7 +89,7 @@ This is used to test that we raise errors correctly."
           (test "Test terse" #:optional? #t))))
 
 (test-assert "puboption-fail"
-  (every (error-catcher define-public-option)
+  (every (error-catcher public-option)
          '(("test" "Test terse")                         ; Faulty name
            (test Test)                                   ; Faulty terse
            (test "Terse" #:long Test)                    ; Faulty long
@@ -98,10 +98,10 @@ This is used to test that we raise errors correctly."
            (test "Terse" #:example 'test)                ; Faulty example
            (test "Terse" #:optional? "hello"))))         ; Faulty optional
 
-;;;;; Tests for: define-open-option
+;;;;; Tests for: open-option
 
 (test-assert "openoption-creation"
-  (every (compose open-option? (cut apply define-open-option <>))
+  (every (compose open-option? (cut apply open-option <>))
         `((test "Test terse")
           (test "Test terse" #:single-char #\t)
           (test "Test terse" #:value #\t)
@@ -112,7 +112,7 @@ This is used to test that we raise errors correctly."
           (test "Test terse" #:optional? #t))))
 
 (test-assert "openoption-fail"
-  (every (error-catcher define-open-option)
+  (every (error-catcher open-option)
          '(("test" "Test terse")                         ; Faulty name
            (test Test)                                   ; Faulty terse
            (test "Terse" #:single-char 't)               ; Faulty single-char
@@ -127,7 +127,7 @@ This is used to test that we raise errors correctly."
 
 (test-assert "option?"
   (every (compose option? (cut <> 'name "Terse"))
-         `(,define-private-option ,define-public-option ,define-open-option)))
+         `(,private-option ,public-option ,open-option)))
 
 (test-assert "option?-false"
   (not (any option?
@@ -137,9 +137,9 @@ This is used to test that we raise errors correctly."
 
 (test-assert "configuration-file"
   (and (string=? (string-join '("/tmp" "name") file-name-separator-string)
-                 (configuration-file (define-configuration 'name "terse" '()
+                 (configuration-file (configuration 'name "terse" '()
                                        #:config-dir "/tmp")))
-       (not (configuration-file (define-configuration 'name "terse" '())))))
+       (not (configuration-file (configuration 'name "terse" '())))))
 
 ;;;;; Tests for: complex-version
 ;;;
@@ -160,7 +160,7 @@ This is used to test that we raise errors correctly."
 
 (test-assert "license-maker-fail"
   (every (error-catcher (cut license-maker <> '()) 'license-maker)
-         `(symbol ,+ ,(define-private-option 'option "terse"))))
+         `(symbol ,+ ,(private-option 'option "terse"))))
 
 (test-end "spec")
 

@@ -96,13 +96,13 @@ CLI-PARAMS with respect to CONFIG."
     "Return a new version of OPT that is stripped of all validation."
     (match opt
       ((name . ($ <openoption> name value test _ single-char))
-       (cons name (define-open-option name "" #:single-char single-char
+       (cons name (open-option name "" #:single-char single-char
                     #:test (if (eq? (procedure-name test) 'boolean?)
                                test
                                (const #t))
                     #:optional? #t #:value value)))
       ((name . ($ <puboption> name value test _ single-char))
-       (cons name (define-public-option name "" #:single-char single-char
+       (cons name (public-option name "" #:single-char single-char
                     #:test (if (eq? (procedure-name test) 'boolean?)
                                test
                                (const #t))

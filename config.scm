@@ -66,8 +66,8 @@
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
-  #:re-export  (define-private-option define-public-option define-open-option
-                 configuration-parser configuration-print getopt-print)
+  #:re-export  (private-option public-option open-option configuration-parser
+                               configuration-print getopt-print)
   #:export     (
                 getopt-config
                 getopt-config-auto
@@ -77,7 +77,7 @@
                 subcommand
                 make-help-emitter
                 make-version-emitter
-                define-configuration
+                configuration
                 ))
 
 
@@ -227,7 +227,7 @@ There is NO WARRANTY, to the extent permitted by law."))
 ;;; - add logic to configuration-spec compiler, to check that keys in each
 ;;;   configuration, including from `argument spec' are unique (meaningful
 ;;;   error if not).
-(define* (define-configuration name terse values #:key config-dir
+(define* (configuration name terse values #:key config-dir
            long help? usage? version? license copyright author
            (version-test? string?) (parser simple-parser) (alias #f))
   "Return a configuration.  NAME should be a symbol naming the configuration.
@@ -381,7 +381,7 @@ shorter alternative to the full name."
 ;; [obsolete] reasoning:
 ;; This could be counter-intuitive.  I like this idea as it could
 ;; significantly shorten configuration definitions, but it should rely on an
-;; 'inheritance' flag in define-configuration.  This flag could tell that all
+;; 'inheritance' flag in configuration.  This flag could tell that all
 ;; lower level configurations should inherit from their 'inheritance #t'
 ;; parent.
 ;;
