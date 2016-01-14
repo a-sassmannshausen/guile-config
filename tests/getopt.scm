@@ -73,14 +73,14 @@
             "A to be flattened option"
             #:value 0
             #:test number?
-            #:cli-handler string->number)
+            #:handler string->number)
           (open-option 'ocsv
             "A to be flattened option"
             #:value '("hello" "world")
             #:test (match-lambda
                      (((? string?) ...) #t)
                      (_ #f))
-            #:cli-handler (lambda (csv)
+            #:handler (lambda (csv)
                             (string-split csv #\,))))
     #:config-dir "/tmp"))
 
@@ -300,14 +300,14 @@
           (open-option 'test "" #:single-char #\t #:value #f)
           (open-option 'test "" #:single-char #\t #:value '<unset>)
           (open-option 'tst "" #:value 5 #:test number?
-            #:cli-handler string->number)
+            #:handler string->number)
           (open-option 'optional "" #:value #f
             #:test (match-lambda
                      ((or #f #t (? number?)) #t)
                      (_ #f))
-            #:cli-handler (match-lambda
-                            ((? boolean? b) b)
-                            ((? string? str) (string->number str)))
+            #:handler (match-lambda
+                        ((? boolean? b) b)
+                        ((? string? str) (string->number str)))
             #:optional? #t))
          ;; Outputs
          (list

@@ -206,7 +206,7 @@ and CLI-VALUE, or just the original configuration-value OPTION-NAME."
                           (puboption-handler opt))))
       ((name . (? open-option? opt))
        (cons name (opt-if set-openoption-value (option-ref getopts name #f)
-                          opt (openoption-cli-handler opt))))
+                          opt (openoption-handler opt))))
       (_ config-val))))
 
 
@@ -250,11 +250,10 @@ REQUIRED."
 (define (openoption->getopt-spec openoption)
   "Return the getopt-long option-spec for OPENOPTION."
   (match openoption
-    (($ <openoption> name '<unset> test cli-handler single-char _ _ _
-                     optional)
-     (getopt-spec name test cli-handler single-char optional #t))
-    (($ <openoption> name _ test cli-handler single-char _ _ _ optional)
-     (getopt-spec name test cli-handler single-char optional))))
+    (($ <openoption> name '<unset> test handler single-char _ _ _ optional)
+     (getopt-spec name test handler single-char optional #t))
+    (($ <openoption> name _ test handler single-char _ _ _ optional)
+     (getopt-spec name test handler single-char optional))))
 
 (define (puboption->getopt-spec puboption)
   "Return the getopt-long option-spec for PUBOPTION."

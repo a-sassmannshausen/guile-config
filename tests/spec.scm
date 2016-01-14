@@ -106,7 +106,7 @@ This is used to test that we raise errors correctly."
           (test "Test terse" #:single-char #\t)
           (test "Test terse" #:value #\t)
           (test "Test terse" #:test ,identity)
-          (test "Test terse" #:cli-handler ,string->symbol)
+          (test "Test terse" #:handler ,string->symbol)
           (test "Terse" #:long "Test documentation.")
           (test "Test terse" #:example "Example")
           (test "Test terse" #:optional? #t))))
@@ -117,7 +117,7 @@ This is used to test that we raise errors correctly."
            (test Test)                                   ; Faulty terse
            (test "Terse" #:single-char 't)               ; Faulty single-char
            (test "Test terse" #:test quoted)             ; Faulty test
-           (test "Test terse" #:cli-handler quoted)      ; Faulty handler
+           (test "Test terse" #:handler quoted)          ; Faulty handler
            (test "Terse" #:long Test)                    ; Faulty long
            (test "Terse" #:example 'test)                ; Faulty example
            (test "Terse" #:optional? "hello"))))         ; Faulty optional

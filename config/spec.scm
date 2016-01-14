@@ -71,8 +71,8 @@
             set-openoption-value
             openoption-test
             set-openoption-test
-            openoption-cli-handler
-            set-openoption-cli-handler
+            openoption-handler
+            set-openoption-handler
             openoption-single-char
             set-openoption-single-char
             openoption-terse
@@ -332,13 +332,13 @@ have to take an argument."
 ;;; overridden in configuration files, and which can be overriden at
 ;;; the CLI.
 (define-immutable-record-type <openoption>
-  (mecha-openoption name value test cli-handler single-char terse long example
+  (mecha-openoption name value test handler single-char terse long example
                     optional)
   open-option?
   (name openoption-name set-openoption-name)
   (value openoption-value set-openoption-value)
   (test openoption-test set-openoption-test)
-  (cli-handler openoption-cli-handler set-openoption-cli-handler)
+  (handler openoption-handler set-openoption-cli-handler)
   (single-char openoption-single-char set-openoption-single-char)
   (terse openoption-terse set-openoption-terse)
   (long openoption-long set-openoption-long)
@@ -346,7 +346,7 @@ have to take an argument."
   (optional openoption-optional set-openoption-optional))
 
 (define* (open-option name terse #:key single-char (value '<unset>)
-                      (test boolean?) (cli-handler identity) long
+                      (test boolean?) (handler identity) long
                       (example "VALUE") optional?)
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
@@ -356,7 +356,7 @@ TERSE should be a < 40 char decsription.
 spec assigned to this option.
  - TEST: the predicate to check this VALUE against, after applying the
 relevant handler.
- - CLI-HANDLER: a procedure of one argument to apply to the string as provided
+ - HANDLER: a procedure of one argument to apply to the string as provided
 from the commandline.  This should be a transformer from
 string->value-for-test.
  - EXAMPLE: an example cli value for help purposes.
@@ -365,7 +365,7 @@ have to take an argument."
   (mecha-openoption (check-name name)
                     (check-value value)
                     (check-test test)
-                    (check-handler cli-handler)
+                    (check-handler handler)
                     (check-single-char single-char)
                     (check-terse terse)
                     (check-long long)
