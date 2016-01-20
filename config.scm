@@ -75,8 +75,8 @@
                 getmio-config-auto
                 option-ref
                 subcommand
-                make-help-emitter
-                make-version-emitter
+                emit-help
+                emit-version
                 configuration
                 ))
 
@@ -106,10 +106,10 @@ was passed, and if it was, emit the appropriate messages before exiting."
        (emit   ((io-lift (lambda (port)
                 (when (or (option-ref parsed 'help)
                           (option-ref parsed 'usage))
-                  (make-help-emitter parsed port)
+                  (emit-help parsed port)
                   (exit 0))
                 (when (option-ref parsed 'version #f)
-                  (make-version-emitter parsed port)
+                  (emit-version parsed port)
                   (exit 0)))
               'output))))
     (return parsed)))
@@ -153,7 +153,7 @@ configuration.  Hence the name of that configuration will be the name of the
 subcommand currently active."
   (configuration-name (getopt-configuration getopt)))
 
-(define* (make-help-emitter getopt #:optional (port #t))
+(define* (emit-help getopt #:optional (port #t))
   "Traverse the config in GETOPT, building a GNU-style help message as we do
 so and emit it to PORT."
   (define (filter-opts opts)
@@ -192,7 +192,7 @@ so and emit it to PORT."
         (format port "~%~a~%"
                 (fill-paragraph (configuration-long config) 80)))))
 
-(define* (make-version-emitter getopt #:optional (port #t))
+(define* (emit-version getopt #:optional (port #t))
   "Traverse the config in GETOPT, building a GNU-style version message as we
 do so and emit it to PORT."
   (format port "~a~%~a~a~a~%"
