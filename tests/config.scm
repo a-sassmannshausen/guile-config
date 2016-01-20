@@ -114,13 +114,21 @@
 
 ;;;;; Tests for: sort-subcommands
 
-;; (test-equal "Sort Subcommands"
-;;   "  a      a\n  b      b\n  c      c\n  d      d"
-;;   ((@@ (config) sort-subcommands)
-;;    (list (configuration 'd "d" '())
-;;          (configuration 'c "c" '())
-;;          (configuration 'b "b" '())
-;;          (configuration 'a "a" '()))))
+(test-equal "Sort Subcommands"
+  "  a     a\n  b     b\n  c     c\n  d     d"
+  ((@@ (config) sort-subcommands)
+   `((d . ,(configuration 'd "d" '()))
+     (c . ,(configuration 'c "c" '()))
+     (b . ,(configuration 'b "b" '()))
+     (a . ,(configuration 'a "a" '())))))
+
+(test-equal "Sort Subcommands with alias"
+  "  alpha        a\n  bravo        b\n  charlie      c\n  delta   | d  d"
+  ((@@ (config) sort-subcommands)
+   `((d . ,(configuration 'delta "d" '() #:alias 'd))
+     (c . ,(configuration 'charlie "c" '()))
+     (b . ,(configuration 'bravo "b" '()))
+     (a . ,(configuration 'alpha "a" '())))))
 
 ;;;;; Tests for: getmio-config-auto
 

@@ -495,12 +495,17 @@ the subcommands contained in CONFIGS."
                     ((confs longest longest-alias)
                      (match conf
                        ((name . ($ <configuration> (= symbol->string n) _ _ _
-                                                   t _ _
-                                                   (= symbol->string a)))
+                                                   t _ _ a))
                         (if ((compose (cut > <> longest) string-length) n)
-                            (conf-spec n a t confs (string-length n)
+                            (conf-spec n (if (symbol? a)
+                                             (symbol->string a)
+                                             "")
+                                       t confs (string-length n)
                                        longest-alias)
-                            (conf-spec n a t confs longest
+                            (conf-spec n (if (symbol? a)
+                                             (symbol->string a)
+                                             "")
+                                       t confs longest
                                        longest-alias)))))))
                 '(() 0 0)
                 configs)
@@ -512,7 +517,9 @@ the subcommands contained in CONFIGS."
                               (match alias
                                 (#f (string-append "   "
                                                    (padded "" longest-alias)))
-                                (a (string-append " | "
+                                (a (string-append (if (string-null? a)
+                                                      "   "
+                                                      " | ")
                                                   (padded a longest-alias))))
                               "  "
                               terse)))
