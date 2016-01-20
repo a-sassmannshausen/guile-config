@@ -192,7 +192,7 @@ so and emit it to PORT."
         (format port "~%~a~%"
                 (fill-paragraph (configuration-long config) 80)))))
 
-(define* (make-version-emitter getopt #:optional port)
+(define* (make-version-emitter getopt #:optional (port #t))
   "Traverse the config in GETOPT, building a GNU-style version message as we
 do so and emit it to PORT."
   (format port "~a~%~a~a~a~%"
