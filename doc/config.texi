@@ -53,6 +53,7 @@ This document describes Guile Config version @value{VERSION}.
 * Private Options::             Internal configuration options.
 * Public Options::              Commandline options.
 * Open Options::                Configuration file options.
+* Initializers::                Parsing command-line and config-file input.
 
 * Contributing::                Contributing to the Guile Config project.
 * Acknowledgments::             Thanks!
@@ -675,6 +676,50 @@ either a boolean or a string as input.  You may also have to provide a
 @code{test} predicate that expects inputs of potentially different
 types.
 @end table
+@end deffn
+
+@c *********************************************************************
+@node Initializers
+@chapter Initializers
+
+After declaring your configurations you will still need to initialize
+your program.  This is done by passing the command-line parameters the
+script was invoked with, and your declared configuration to an
+initialize.  There are 4 such initializers, two of which work in a very
+similar fashion to getopt-long's initializer, and two of which integrate
+with an io monad paradigm.
+
+@deffn {Scheme Procedure} getopt-config args config @
+       [#:input-port stdin] [#:output-port stdout] @
+       [#:error-port stderr]
+@deffnx {Scheme Procedure} getopt-config-auto args config @
+        [#:input-port stdin] [#:output-port stdout] @
+        [#:error-port stderr]
+
+The above procedures work very similarly.  Both have taken their
+inspiration from @code{getopt-long}'s way of doing things: @code{args}
+should be the command-line arguments passed to the script and
+@code{config} should be the declared configuration.
+
+The second procedure will automatically check whether the end-user
+requested @emph{--help}, @emph{--usage}, or @emph{--version} and will
+emit an appropriate message and exit the program if so.
+@end deffn
+
+@deffn {Scheme Procedure} getmio-config args config
+@deffnx {Scheme Procedure} getmio-config-auto args config
+
+These procedures return io monadic values, which contain the promise to
+carry out the steps necessary to parse the command-line arguments
+@var{args}, in light of the configuration declared in @var{config}.
+
+The second procedure also contains logic which will automatically check
+whether the end-user requested @emph{--help}, @emph{--usage}, or
+@emph{--version} and will emit an appropriate message and exit the
+program if so.
+
+For an example of using this monadic style, please see the documentation
+provided with the monads module.
 @end deffn
 
 @c *********************************************************************
