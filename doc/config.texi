@@ -48,6 +48,8 @@ This document describes Guile Config version @value{VERSION}.
 
 @menu
 * Introduction::                The need for Guile Config.
+* Overview::                    The low-down on usage.
+* Configuration::               The configuration.
 * Private Options::             Internal configuration options.
 * Public Options::              Commandline options.
 * Open Options::                Configuration file options.
@@ -64,38 +66,624 @@ This document describes Guile Config version @value{VERSION}.
 @chapter Introduction
 
 Guile Config is a declarative configuration language for applications.
-In one sentence: it allows you to specify all internal, commandline and
-configuration file variables, after which, at run-time, it will handle
-configuration file creation and parsing, commandline parsing,
---help/--usage and --version output.
+
+As an easy to parse (*hohum*) list:
+@itemize
+@item
+You can declare:
+
+@itemize
+@item
+Application internal configuration variables (private options).
+
+@item
+Command-line configuration options (public options).
+
+@item
+Configuration file & command-line configuration options (open options).
+
+@item
+Sub-commands with their own set of private, public and open options.
+
+@item
+Whether to automatically generate the standard @option{--help},
+@option{--usage} and @option{--version} command-line options.
+@end itemize
+
+@item
+You can parse through:
+
+@itemize
+@item
+@code{getopt-config} or @code{getopt-config-auto}, which parse
+command-line arguments and return objects that can be used in the same
+manner as the object returned by @code{getopt-long}.
+
+@item
+@code{getmio-config} or @code{getmio-config-auto}, which return io-monad
+values that will parse command-line arguments and return objects that
+can be used in the same manner as the object returned by
+@code{getopt-long}.
+
+@item
+In both cases, if you use the @emph{-auto} version, your program will
+automatically emit help or version messages, if they were declared, and
+exit with code 0, if a @option{--help}, @option{--usage} or
+@option{--version} command-line argument was detected.
+@end itemize
+
+@item
+You can access the values of individual configuration options using the
+@code{option-ref} function in the same manner that you would when using
+@code{getopt-long}.
+@end itemize
 
 Guile Config builds upon the excellent @code{(ice-9 getopt-long)}
 module, augmenting it with configuration file management, and recursive
 sub-command management.
 
 Guile Config internally uses a monad: the IO monad, and can be used in
-IO monadic style or coventional style.
+IO monadic style or coventional style.  In the former it is
+referentially transparent and side-effect free.  In the latter it has
+side-effects.
+
+@c *********************************************************************
+@node Overview
+@chapter Overview
+
+This chapter will provide you with concrete examples of the use of the
+config library.
+
+First we will declare our application configuration.  After this we will
+use it in a conventional and in a monadic example.
+
+@menu
+* Declaration::                     How to declare a configuration
+* Conventional use::                How to use the configuration conventionally
+* Monadic use::                     How to use the configuration monadically
+@end menu
+
+@c *********************************************************************
+@node Declaration
+@section Declaration
+
+The declaration of your application's configuration happens through the
+@code{configuration} @pxref{Configuration} command.
+
+This first example is bare-bones and simply serves to illustrate a
+minimal use-case for our library.  It will not be used in the rest of
+this chapter.
+
+Nonetheless, we request automatic help, usage and version messages. Our
+version message will be bare-bones as we have not specified copyright,
+version, license or author.
+
+@lisp
+(use-modules (config))
+
+(define root-config
+  (configuration 'frobnigator
+    "The root configuration for frobnigator."
+    (list
+      (public-option 'log-level
+        "The verbosity of the command."
+        #:single-char #\l
+        #:example "3"
+        #:value 1
+        #:test integer?
+        #:handler string->number)
+      (public-option 'silent
+        "Should we not emit to stdout?"
+        #:single-char #\s
+        #:value #f))
+    #:help? #t
+    #:usage? #t))
+@end lisp
+
+In this next example we will declare a relatively small configuration
+with 2 sub-commands.  As above, we request automatically generated help,
+usage and version messages.  We also declare the author, copyright and
+the license of the application for greater accuracy in the emitted
+messages.
+
+This is a moderately complex example to show off some advanced features
+of the library.
+
+@lisp
+(use-modules (config)
+             (srfi srfi-26)
+
+(define root-config
+  (configuration 'frobnigator
+    "The root configuration for frobnigator."
+    (list
+      (configuration 'make
+        "Configuration for the make sub-command."
+        (list
+          ;; An open option flag (either #t or #f) that can be passed as a
+          ;; command-line param or set as a value in the configuration file.
+          ;; In either case config will ensure the value is either #t or #f.
+          ;; Getopt-long will ensure in command-line usage no value is
+          ;; specified.
+          (open-option 'verbose
+            "Be chatty."
+            #:single-char #\v
+            #:value #f)
+          ;; A public option that can only be specified on the command-line.
+          ;; It has no short version, and a value must be specified, though
+          ;; it defaults to a value.
+          ;; The value is expected to be a white space delimited string which
+          ;; is then turned into a file name using handler.
+          (public-option 'source
+            "A file to import from."
+            #:value "tmp frobnigator import"
+            #:test string?
+            #:example "home frob file"
+            #:handler (compose (cut string-join <> file-name-separator-string
+                                    'prefix)
+                               (cut string-split <> #\ ))))
+        #:config-dir "/tmp/frobnigator"
+        #:help? #t
+        #:usage? #t
+        #:copyright '(2015 2016)
+        #:version? "0.1"
+        #:license 'agplv3+
+        #:author "Alex Sassmannshausen")
+      ;; This configuration contains no open-options as a result it requires
+      ;; no configuration file.
+      (configuration 'test
+        "Configuration for the test sub-command."
+        (list
+          ;; A public option which must resolve to an integer.  On the
+          ;; command-line it will be passed as a string but automatically
+          ;; converted to a number.
+          (public-option 'log-level
+            "The verbosity of the command."
+            #:single-char #\l
+            #:example "3"
+            #:value 1
+            #:test integer?
+            #:handler string->number))
+        #:copyright '(2014)
+        #:alias 'tst
+        #:help? #t
+        #:usage? #t
+        #:copyright '(2015 2016)
+        #:version? "0.1"
+        #:license 'agplv3+
+        #:author "Alex Sassmannshausen")
+      ;; A command-line option that specifies a file for frobnigator to
+      ;; operate on.
+      ;; By not specifying a value we make this option mandatory.  If the file
+      ;; name specified does not exist we simply error out thanks to our test.
+      (public-option 'target
+        "The target for frobnigator."
+        #:test file-exists?
+        #:example "/tmp/frob-target"
+        #:single-char #\t))
+    #:config-dir "/tmp/frobnigator"
+    #:help? #t
+    #:usage? #t
+    #:copyright '(2015 2016)
+    #:version? "0.1"
+    #:license 'agplv3+
+    #:author "Alex Sassmannshausen"))
+@end lisp
+
+@c *********************************************************************
+@node Conventional use
+@section Conventional use
+
+In order to use our declared configuration in a manner similar to
+getopt-long, we can simply invoke @code{getopt-config} or
+@code{getopt-config-auto}.
+
+Using @code{getopt-config-auto} is very convenient: it scans
+command-line arguments automatically for help and usage flags and emits
+messages automatically.  An example invocation would be:
+
+@lisp
+;; We assume we are operating in the same file as in the previous chapter, so
+;; we don't need to load modules, and root-config is defined.
+
+(getopt-config-auto (command-line) root-config)
+@end lisp
+
+Using @code{getopt-config} on the other hand grants you more control. We
+don't automatically parse the command-line arguments for version or help
+flags.  We will have to do so manually, and invoke the appropriate
+message generators:
+
+@lisp
+;; We assume we are operating in the same file as in the previous chapter, so
+;; we don't need to load modules, and root-config is defined.
+
+(let ((config (getopt-config (command-line) root-config)))
+  (cond ((or (option-ref config 'usage #f)
+             (option-ref config 'help #f))
+         (emit-help config)
+         (exit 0))
+        ((option-ref config 'version #f)
+         (emit-version config)
+         (exit 0))
+        (else 'do-stuff)))
+@end lisp
+
+This latter usage is closer to the @code{getopt-long} style, but can
+still benefit from our emitters.  Of course you are free to write your
+own version or usage emitters.
+
+@c *********************************************************************
+@node Monadic use
+@section Monadic use
+
+Monadic use of the config library will be of interest to you if you
+prefer working in a purely functional monadic style.
+
+As above we have the option of using an automatic version or a manual
+version.  Use of the manual version is left as an exercise to the user.
+
+@lisp
+;; We assume we are operating in the same file as in the previous chapter, so
+;; we don't need to load modules, and root-config is defined.
+;; We must however import our monad modules:
+(use-modules (monads)
+             (monads io))
+
+(run-io
+  (mlet* %io-monad
+      ((config (getmio-config-auto (command-line) root-config))
+       (ignore (iosimple-format "Target: ~a~%" (option-ref config 'target))))
+    (return config)))
+@end lisp
+
+@c *********************************************************************
+@node Configuration
+@chapter Configuration
+
+The configuration data type is at the core of the Config library.  Every
+application using it will have at least one configuration defined.  This
+root configuration in turn can contain further (sub-) configurations and
+options (see below).
+
+The data type is described in detail below, however, normally it is
+instantiated using the @code{configuration} convenience procedure, which
+is outlined here:
+
+@deffn {Scheme Procedure} configuration name terse values @
+       [#:config-dir #f] [#:long #f] [#:help? #f] [#:usage? #f] @
+       [#:version? #f] [#:license #f] [#:copyright #f] [#:author #f] @
+       [#:version-test? string?] [#:parser simple-parser] [#:alias #f]
+
+@code{configuration} allows you to create a new configuration or
+sub-configuration.  You should use this form when declaring your
+program's configurations, and normally do not need to provide the
+@code{long}, @code{version-test?} or @code{parser} keyword arguments.
+@code{config-dir} is only necessary if this configuration contains
+open-options, and @code{alias} is only necessary if you want to provide
+a short form of the sub-command defined by this configuration.  Finally,
+@code{license}, @code{copyright} and @code{author} can be omitted, but
+doing so will result in a very limited @emph{version} string.
+
+@table @code
+@item name
+A symbol specifying the application/sub-command name.
+
+@item terse
+A string of less than 40 characters providing a brief explanation of
+this configuration.
+
+@item values
+A list containing further configurations (for sub-commands), private-,
+public- and open-options.
+
+@item config-dir
+A string naming the directory in which a configuration file would be
+created if it is needed.  The configuration file will not be created if
+no open-options are part of this configuration, even if it a
+configuration directory was specified.
+
+@item long
+A string providing a detailed explanation of this configuration.
+
+@item help?
+A boolean value indicating whether we should auto-provide the
+@emph{--help} public-option.
+
+@item usage?
+A boolean value indicating whether we should auto-provide the
+@emph{--usage} public-option.
+
+@item version?
+A value indicating the version of this command or program.  Setting this
+will also automatically add the @emph{--version} public-option, and a
+@emph{version-number} private option.
+
+This value can conform to any version scheme you desire, but it should
+match the predicate provided in @code{version-test?}.  By default the
+test is @code{string?}, meaning that by default, version? should be
+provided with a string value.
+
+@item license
+This value can contain a <license> record or one of the following
+symbols: 'gplv3+ or 'agplv3+.  Finally, as a fallback, license can be
+set to an arbitrary string.  This string will be considered the name of
+our license.
+
+@item copyright
+A list of years for which the author of this program or sub-command
+claims copyright.
+
+@item author
+A string containing the name of the author of this program or
+sub-command.
+
+@item version-test?
+A predicate with which we ensure that @code{version?} is a legitimate
+version data type.
+
+@item parser
+A @code{parser} record, which in turn provides a means to parse and
+write this configuration's configuration file.
+
+@item alias
+A symbol providing an alternative name for this configuration.  This can
+be useful for sub-commands, in order to provide shorter, alternative
+means of invocation.
+@end table
+
+A simple example configuration object with three options would be:
+
+@lisp
+(define root-config (configuration 'app-name
+                      "The root configuration for app-name."
+                      (list (private-option 'priv-opt
+                              "A private option"
+                              #:value #t)
+                            (open-option 'open-opt
+                              "An open option"
+                              #:value "hello"
+                              #:test  string?)
+                            (public-option 'public-opt
+                              "A public option"
+                              #:value "world"
+                              #:test  string?))
+                      #:config-dir "/tmp"))
+@end lisp
+@end deffn
+
+@noindent
+As the example contains an open option, which can be set via the
+configuration file, we must specify the @code{#:config-dir} keyword
+argument, to ensure the configuration file exists at run-time.
 
 @c *********************************************************************
 @node Private Options
 @chapter Private Options
 
+Private options are configuration values that cannot be manipulated by
+the end user, either through command-line arguments or through
+configuration files.  Internally, private-options are used in order to
+implement the version, license, author and copyright configuration
+values.  Private options could be used to store any other internal
+program configuration values, such as data directories etc.
+
+@deffn {Scheme Procedure} private-option name terse [#:long #f] @
+       [#:value '<unset>] [#:test boolean?]
+
+@code{private-option} is a convenience procedure to create private
+options.  Private options should normally always have a value, and the
+combination of '<unset> as value and boolean? as test will cause an
+error.
+
+@table @code
+@item name
+A symbol specifying the name of the private option.
+
+@item terse
+A string of less than 40 characters providing a brief explanation of
+this configuration.
+
+@item long
+A string providing a detailed explanation of this configuration.
+
+@item value
+The value of this private option.  This can be an arbitrary values, but
+it should pass the predicate defined with @code{test}.  Value is
+normally either set by the programmer, or by this programs build system
+at installation time.
+
+@item test
+A predicate to evaluate @code{value}.  We will throw an error if
+@code{value} does not satisfy this predicate.
+@end table
+@end deffn
+
+Normally private options are not named; instead they are simply defined
+immediately within the configuration in which it is needed.
+
 @c *********************************************************************
 @node Public Options
 @chapter Public Options
+
+@code{Public options} are configuration parameters that can be set by
+the end-user using command-line parameters to this program or
+sub-command.  Using the @code{help?}, @code{usage?} or @code{version?}
+keywords during configuration definition will result in the automatic
+addition of the 'help, 'usage and 'version public options to the
+configuration (using @code{version?} will also result in the automatic
+addition of the 'version-number private-option).
+
+@deffn {Scheme Procedure} public-option name terse [#:long #f] @
+       [#:value '<unset>] [#:single-char #f] [#:test boolean?] @
+       [#:handler identity] [#:example ``VALUE''] [#:optional? #f]
+
+@code{public-option} is a convenience procedure to create public
+options.  They are normally defined anonymously as part of
+configurations, but can be named if the same public option is to be used
+in multiple configurations.
+
+@table @code
+@item name
+A symbol specifying the name of the public option.
+
+@item terse
+A string of less than 40 characters providing a brief explanation of
+this configuration.
+
+@item long
+A string providing a detailed explanation of this configuration.
+
+@item value
+The value of this public option.  This can be an arbitrary values, but
+it should pass the predicate defined with @code{test}.  Value is
+normally set by the programmer, but can be left '<unset> to generate a
+mandatory command-line parameter.  Alternatively, if value is set to #t
+or #f, and test is left as a boolean?, then we will generate a
+command-line parameter that acts as a flag, i.e. which does not take a
+value.
+
+@item single-char
+If specified this should be a character type value, specifying the short
+name for this command-line parameter.
+
+@item test
+A predicate with which we test the value supplied by default in
+@code{value} or by the end-user on the command-line.  If this public
+option is not a @emph{flag}, then @code{test} should either be
+@code{string?}, or you should specify @code{handler} to transform the
+value specified by the end user on the command-line into the value that
+will pass test.
+
+For instance, if we expect the end user to provide a number as input to
+this public option, then we can set @code{test} to @code{number?} and
+@code{handler} to @code{string->number}.
+
+@item handler
+A procedure of one argument that will be applied to the value supplied
+by the end-user on the command-line to transform that value (which will
+always be a string) into a different type that can pass @code{test}.
+
+This interplay between @code{test} and @code{handler} allows us to
+perform input validation entirely at the configuration parsing stage,
+thus freeing the programmer from having to do this in the body of the
+program itself.
+
+@item example
+An string providing an example value which will be displayed to the
+end-user when they request @code{--help}, or @code{--usage}.
+
+@item optional?
+If set to #t, this command-line parameter can be used as a flag, or
+alternatively, it can be passed a value by the end-user.  Setting this
+to #t will require you to provide an appropriate @code{handler}, taking
+either a boolean or a string as input.  You may also have to provide a
+@code{test} predicate that expects inputs of potentially different
+types.
+@end table
+@end deffn
 
 @c *********************************************************************
 @node Open Options
 @chapter Open Options
 
+Open options are configuration parameters that can be set by the
+end-user using command-line parameters or using a configuration file.
+Attaching any open options to a configuration will require that you also
+specify a @code{config-dir} for that configuration, otherwise an error
+will be thrown.
+
+Open options will cause the program to generate configuration files if
+they do not yet exist, and set the values in those according to the
+default values of all open options defined within the configuration.
+The program will then parse the configuration files, and initialize all
+open options to the values found in the configuration files.  Finally
+the program will parse its command-line parameters and override any
+values initialized by the configuration files with the new values
+derived from the command-line.
+
+@deffn {Scheme Procedure} open-option name terse [#:long #f] @
+       [#:value '<unset>] [#:single-char #f] [#:test boolean?] @
+       [#:handler identity] [#:example ``VALUE''] [#:optional? #f]
+
+@code{open-option} is a convenience procedure to create open options.
+They are normally defined anonymously as part of configurations, but can
+be named if the same open option is to be used in multiple
+configurations.
+
+@table @code
+@item name
+A symbol specifying the name of the open option.
+
+@item terse
+A string of less than 40 characters providing a brief explanation of
+this configuration.
+
+@item long
+A string providing a detailed explanation of this configuration.
+
+@item value
+The value of this open option.  This can be an arbitrary values, but it
+should pass the predicate defined with @code{test}.  Value should not be
+left as '<unset>.  Doing so is currently unspecified.  If value is set
+to #t or #f, and test is left as a boolean?, then we will generate a
+command-line parameter that acts as a flag, i.e. which does not take a
+value.
+
+@item single-char
+If specified this should be a character type value, specifying the short
+name for this command-line parameter.
+
+@item test
+A predicate with which we test the value supplied by default in
+@code{value}, in the configuration file or by the end-user on the
+command-line.  If this open option is not a @emph{flag}, then
+@code{test} should either be @code{string?}, or you should specify
+@code{handler} to transform the value specified by the end user on the
+command-line into the value that will pass test.
+
+For instance, if we expect the end user to provide a number as input to
+this public option, then we can set @code{test} to @code{number?} and
+@code{handler} to @code{string->number}.
+
+For values provided in the configuration file, we simply apply the
+predicate directly to the value, meaning that configuration files must
+provide Scheme values.
+
+@item handler
+A procedure of one argument that will be applied to the value supplied
+by the end-user on the command-line to transform that value (which will
+always be a string) into a different type that can pass @code{test}.
+
+This interplay between @code{test} and @code{handler} allows us to
+perform input validation entirely at the configuration parsing stage,
+thus freeing the programmer from having to do this in the body of the
+program itself.
+
+Handlers are only used when parsing command-line input, not when parsing
+values specified in the configuration files.
+
+@item example
+An string providing an example value which will be displayed to the
+end-user when they request @code{--help}, or @code{--usage}.
+
+@item optional?
+If set to #t, this command-line parameter can be used as a flag, or
+alternatively, it can be passed a value by the end-user.  Setting this
+to #t will require you to provide an appropriate @code{handler}, taking
+either a boolean or a string as input.  You may also have to provide a
+@code{test} predicate that expects inputs of potentially different
+types.
+@end table
+@end deffn
+
 @c *********************************************************************
 @node Contributing
 @chapter Contributing
 
-Guile Config is an experiment in truly self-directed study.  This experiment is
-ongoing and open to your participation!  Get in touch with the project
-on @email{alex@@pompo.co}.  The project welcomes ideas,
-bug reports, patches, or feedback.
+Guile Config is an open project and I actively invite contribution.  Get
+in touch with the project on @email{alex@@pompo.co}.  The project
+welcomes ideas, bug reports, patches, or feedback.
 
 Please see the HACKING file that comes with the Guile Config source code
 for practical details about contributions.
@@ -104,8 +692,8 @@ for practical details about contributions.
 @node Acknowledgments
 @chapter Acknowledgments
 
-Guile Config does what it does in large part by standing on the shoulders of
-giants.
+Guile Config does what it does only by virtue of standing on the
+shoulders of the giants that have helped build the Guile community.
 
 @c *********************************************************************
 @node GNU Free Documentation License
