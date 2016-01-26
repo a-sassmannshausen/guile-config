@@ -45,12 +45,15 @@ SOURCES =					\
   conf.scm					\
   conf/getopt.scm				\
   conf/parser.scm				\
-  conf/spec.scm
+  conf/spec.scm					\
+  monads.scm					\
+  monads/io.scm
 
 TESTS =						\
   tests/conf.scm				\
   tests/getopt.scm				\
-  tests/spec.scm
+  tests/spec.scm				\
+  tests/monads.scm
 
 TEST_EXTENSIONS = .scm
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
