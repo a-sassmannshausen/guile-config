@@ -28,14 +28,14 @@
 ;;
 ;; Unit tests for getopt.scm.
 ;;
-;; Source-file: config/getopt.scm
+;; Source-file: conf/getopt.scm
 ;;
 ;;; Code:
 
 (define-module (tests getopt)
-  #:use-module (config)
-  #:use-module (config getopt)
-  #:use-module (config spec)
+  #:use-module (conf)
+  #:use-module (conf getopt)
+  #:use-module (conf spec)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
@@ -93,7 +93,7 @@
 
 (test-assert "Getopt-long conversion"
   (every (lambda (input output)
-           (equal? ((@@ (config getopt) config->getopt-long) test-config input)
+           (equal? ((@@ (conf getopt) config->getopt-long) test-config input)
                    output))
          ;; We cannot test for unexpected inputs, as getopt-long will exit
          ;; when predicate fails.
@@ -115,7 +115,7 @@
 (test-assert "Derive-free-params"
   (every (lambda (input output)
            (equal? 
-            ((@@ (config getopt) derive-free-params)
+            ((@@ (conf getopt) derive-free-params)
              (configuration 'test
                "Test config."
                (list
@@ -157,7 +157,7 @@
 
 ;; Boolean, then value taking, problem
 (test-assert "Derive-free-params boolean/value-taking problem"
-  ((@@ (config getopt) derive-free-params)
+  ((@@ (conf getopt) derive-free-params)
    (configuration 'test
      "Test config."
      (list
@@ -176,7 +176,7 @@
 
 ;; Value-taking, then boolean, problem.
 (test-assert "Derive-free-params value-taking/boolean problem"
-  ((@@ (config getopt) derive-free-params)
+  ((@@ (conf getopt) derive-free-params)
    (configuration 'test
      "Test config."
      (list
@@ -197,7 +197,7 @@
 ;;;;; Tests for: expand-configs
 
 (test-assert "Expand-configs"
-  (match ((@@ (config getopt) expand-configs)
+  (match ((@@ (conf getopt) expand-configs)
           `((level1 . ,(configuration 'level1
                          "Level 1 config."
                          '()
@@ -294,7 +294,7 @@
 
 (test-assert "openoption->getopt-spec"
   (every (lambda (in test)
-           (test ((@@ (config getopt) openoption->getopt-spec) in)))
+           (test ((@@ (conf getopt) openoption->getopt-spec) in)))
          ;; Inputs
          (list
           (open-option 'test "" #:single-char #\t #:value #f)
@@ -342,7 +342,7 @@
 
 (test-assert "puboption->getopt-spec"
   (every (lambda (in test)
-           (test ((@@ (config getopt) puboption->getopt-spec) in)))
+           (test ((@@ (conf getopt) puboption->getopt-spec) in)))
          ;; Inputs
          (list
           (public-option 'test "" #:single-char #\t #:value #f)

@@ -1,4 +1,4 @@
-;; config.scm --- The config module    -*- coding: utf-8 -*-
+;; conf.scm --- The config module    -*- coding: utf-8 -*-
 ;;
 ;; Copyright (C) 2014 Alex Sassmannshausen <alex@pompo.co>
 ;;
@@ -54,10 +54,10 @@
 ;;; Monadic logic:
 ;;; 
 
-(define-module (config)
-  #:use-module (config getopt)
-  #:use-module (config parser)
-  #:use-module (config spec)
+(define-module (conf)
+  #:use-module (conf getopt)
+  #:use-module (conf parser)
+  #:use-module (conf spec)
   #:use-module (ice-9 match)
   #:use-module (ice-9 vlist)
   #:use-module (monads)
@@ -638,4 +638,4 @@ This formatting is intended for the brief summary of our command."
        (configuration-parser configuration)) configuration input-port))
    'input))
 
-;;; config ends here
+;;; conf.scm ends here

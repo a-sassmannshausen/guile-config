@@ -20,8 +20,8 @@
 ;;; 59 Temple Place - Suite 330        Fax:    +1-617-542-2652
 ;;; Boston, MA  02111-1307,  USA       gnu@gnu.org
 
-(define-module (config parser)
-  #:use-module (config spec)
+(define-module (conf parser)
+  #:use-module (conf spec)
   #:use-module (ice-9 match)
   #:use-module (ice-9 pretty-print)
   #:use-module (ice-9 streams)

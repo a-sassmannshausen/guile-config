@@ -42,13 +42,13 @@ moddir=$(prefix)/share/guile/site/2.0
 godir=$(libdir)/guile/2.0/ccache
 
 SOURCES =					\
-  config.scm					\
-  config/getopt.scm				\
-  config/parser.scm				\
-  config/spec.scm
+  conf.scm					\
+  conf/getopt.scm				\
+  conf/parser.scm				\
+  conf/spec.scm
 
 TESTS =						\
-  tests/config.scm				\
+  tests/conf.scm				\
   tests/getopt.scm				\
   tests/spec.scm
 
@@ -57,7 +57,7 @@ AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
 SCM_LOG_COMPILER = $(top_builddir)/test-env $(GUILE)
 AM_SCM_LOG_FLAGS = --no-auto-compile -L "$(top_srcdir)"
 
-info_TEXINFOS = doc/config.texi
+info_TEXINFOS = doc/conf.texi
 doc_haunt_TEXINFOS = doc/fdl-1.3.texi
 dvi: # Don't build dvi docs
 

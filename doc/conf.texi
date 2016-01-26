@@ -2,7 +2,7 @@
 @c -*-texinfo-*-
 
 @c %**start of header
-@setfilename config.info
+@setfilename conf.info
 @documentencoding UTF-8
 @settitle Guile Config Reference Manual
 @c %**end of header
@@ -160,7 +160,7 @@ version message will be bare-bones as we have not specified copyright,
 version, license or author.
 
 @lisp
-(use-modules (config))
+(use-modules (conf))
 
 (define root-config
   (configuration 'frobnigator
@@ -191,7 +191,7 @@ This is a moderately complex example to show off some advanced features
 of the library.
 
 @lisp
-(use-modules (config)
+(use-modules (conf)
              (srfi srfi-26)
 
 (define root-config

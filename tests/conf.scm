@@ -26,15 +26,15 @@
 
 ;;; Commentary:
 ;;
-;; Unit tests for config.scm.
+;; Unit tests for conf.scm.
 ;;
-;; Source-file: config.scm
+;; Source-file: conf.scm
 ;;
 ;;; Code:
 
-(define-module (tests config)
-  #:use-module (config)
-  #:use-module (config spec)
+(define-module (tests conf)
+  #:use-module (conf)
+  #:use-module (conf spec)
   #:use-module (ice-9 match)
   #:use-module (monads)
   #:use-module (monads io)
@@ -89,7 +89,7 @@
 ;; Make sure we don't require a configuration file if we have no need for it.
 (test-assert "Configuration no config ok."
   ;; Config-dir, but no open-options -> no need for it
-  (and (run-io ((@@ (config) merge-config-file-values)
+  (and (run-io ((@@ (conf) merge-config-file-values)
                 (configuration 'test-config
                   "Test configuration."
                   (list (public-option 'no-config
@@ -101,7 +101,7 @@
                   #:config-dir "/tmp")
                 '()))
        ;; No config-dir, and no open-options
-       (run-io ((@@ (config) merge-config-file-values)
+       (run-io ((@@ (conf) merge-config-file-values)
                 (configuration 'test-config
                   "Test configuration."
                   (list (public-option 'no-config
@@ -116,7 +116,7 @@
 
 (test-equal "Sort Subcommands"
   "  a     a\n  b     b\n  c     c\n  d     d"
-  ((@@ (config) sort-subcommands)
+  ((@@ (conf) sort-subcommands)
    `((d . ,(configuration 'd "d" '()))
      (c . ,(configuration 'c "c" '()))
      (b . ,(configuration 'b "b" '()))
@@ -124,7 +124,7 @@
 
 (test-equal "Sort Subcommands with alias"
   "  alpha        a\n  bravo        b\n  charlie      c\n  delta   | d  d"
-  ((@@ (config) sort-subcommands)
+  ((@@ (conf) sort-subcommands)
    `((d . ,(configuration 'delta "d" '() #:alias 'd))
      (c . ,(configuration 'charlie "c" '()))
      (b . ,(configuration 'bravo "b" '()))
@@ -167,7 +167,7 @@
 
 (test-assert "Create config-file"
   (begin
-    (run-io ((@@ (config) ensure-config-files)
+    (run-io ((@@ (conf) ensure-config-files)
              (configuration 'test-config
                "Test configuration."
                (list (open-option 'config

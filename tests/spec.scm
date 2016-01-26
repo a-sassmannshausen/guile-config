@@ -28,13 +28,13 @@
 ;;
 ;; Unit tests for spec.scm.
 ;;
-;; Source-file: config/spec.scm
+;; Source-file: conf/spec.scm
 ;;
 ;;; Code:
 
 (define-module (tests spec)
-  #:use-module (config)
-  #:use-module (config spec)
+  #:use-module (conf)
+  #:use-module (conf spec)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
