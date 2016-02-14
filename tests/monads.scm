@@ -22,15 +22,15 @@
 ;;; Boston, MA  02111-1307,  USA       gnu@gnu.org
 
 (define-module (test-monads)
-  #:use-module (monads)
-  #:use-module (monads io)
+  #:use-module (conf monads)
+  #:use-module (conf monads io)
   #:use-module (ice-9 match)
   #:use-module (rnrs io ports)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-64))
 
-;; Test the (monads) module.
+;; Test the (conf monads) module.
 
 (define %monads
   (list %identity-monad %state-monad %io-monad))

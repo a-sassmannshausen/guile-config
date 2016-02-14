@@ -46,8 +46,8 @@ SOURCES =					\
   conf/getopt.scm				\
   conf/parser.scm				\
   conf/spec.scm					\
-  monads.scm					\
-  monads/io.scm
+  conf/monads.scm				\
+  conf/monads/io.scm
 
 TESTS =						\
   tests/conf.scm				\

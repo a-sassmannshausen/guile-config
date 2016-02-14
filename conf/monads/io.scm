@@ -20,8 +20,8 @@
 ;;; 59 Temple Place - Suite 330        Fax:    +1-617-542-2652
 ;;; Boston, MA  02111-1307,  USA       gnu@gnu.org
 
-(define-module (monads io)
-  #:use-module (monads)
+(define-module (conf monads io)
+  #:use-module (conf monads)
   #:use-module (ice-9 match)
   #:use-module (ice-9 rdelim)
   #:use-module (srfi srfi-1)

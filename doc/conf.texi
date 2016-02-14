@@ -328,8 +328,8 @@ version.  Use of the manual version is left as an exercise to the user.
 ;; We assume we are operating in the same file as in the previous chapter, so
 ;; we don't need to load modules, and root-config is defined.
 ;; We must however import our monad modules:
-(use-modules (monads)
-             (monads io))
+(use-modules (conf monads)
+             (conf monads io))
 
 (run-io
   (mlet* %io-monad

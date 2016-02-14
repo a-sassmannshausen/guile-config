@@ -36,8 +36,8 @@
   #:use-module (conf)
   #:use-module (conf spec)
   #:use-module (ice-9 match)
-  #:use-module (monads)
-  #:use-module (monads io)
+  #:use-module (conf monads)
+  #:use-module (conf monads io)
   #:use-module (srfi srfi-64)
   )
 

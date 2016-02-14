@@ -21,7 +21,7 @@
 ;;; 59 Temple Place - Suite 330        Fax:    +1-617-542-2652
 ;;; Boston, MA  02111-1307,  USA       gnu@gnu.org
 
-(define-module (monads)
+(define-module (conf monads)
   #:use-module ((system syntax)
                 #:select (syntax-local-binding))
   #:use-module (ice-9 match)
