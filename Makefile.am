@@ -72,6 +72,6 @@ EXTRA_DIST +=					\
   NEWS						\
   $(TESTS)
 
-SUBDIRS = po/
+SUBDIRS = po
 
 ACLOCAL_AMFLAGS = -I m4
