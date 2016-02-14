@@ -67,6 +67,9 @@ EXTRA_DIST +=					\
   pre-inst-env.in				\
   test-env.in					\
   README					\
+  ChangeLog					\
+  Authors					\
+  NEWS						\
   $(TESTS)
 
 SUBDIRS = po/
