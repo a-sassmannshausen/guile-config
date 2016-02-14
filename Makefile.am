@@ -61,12 +61,14 @@ SCM_LOG_COMPILER = $(top_builddir)/test-env $(GUILE)
 AM_SCM_LOG_FLAGS = --no-auto-compile -L "$(top_srcdir)"
 
 info_TEXINFOS = doc/conf.texi
-doc_haunt_TEXINFOS = doc/fdl-1.3.texi
 dvi: # Don't build dvi docs
 
 EXTRA_DIST +=					\
   pre-inst-env.in				\
   test-env.in					\
   README					\
-  guix.scm					\
   $(TESTS)
+
+SUBDIRS = po/
+
+ACLOCAL_AMFLAGS = -I m4

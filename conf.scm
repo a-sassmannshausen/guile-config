@@ -158,11 +158,14 @@ subcommand currently active."
 so and emit it to PORT."
   (define (filter-opts opts)
     (filter (lambda (x) (or (public-option? x) (open-option? x))) opts))
-  (let ((config (getopt-configuration getopt)))
+  (let ((config (getopt-configuration getopt))
+        (usage-string (string-append (_ "Usage") ": "))
+        (options-string (string-append (_ "Options") ":"))
+        (subcommands-string (string-append (_ "Subcommands") ":")))
     (match (configuration-options config)
       (((names . (? option? opts)) ...)
        ;; Short Help
-       (format port "Usage: ~a ~a~%"
+       (format port "~a~a ~a~%" usage-string
                (string-append (symbol->string (configuration-name config))
                               (match (configuration-alias config)
                                 (#f "")
@@ -170,7 +173,7 @@ so and emit it to PORT."
                                  (string-append " | "
                                                 (symbol->string alias)))))
                (sort-opts (filter-opts opts)
-                          (+ (string-length "Usage: ")
+                          (+ (string-length usage-string)
                              (string-length (symbol->string
                                              (configuration-name config)))
                              (match (configuration-alias config)
@@ -180,13 +183,13 @@ so and emit it to PORT."
                                    (string-length (symbol->string alias)))))
                              1)))
        ;; Detailed Help
-       (format port "~%Options:~%~a~%"
+       (format port "~%~a~%~a~%" options-string
                (sort-detailed-opts (filter-opts opts))))
-      (_ (throw 'config "CONFIG is invalid.")))
+      (_ (throw 'config (_ "CONFIG is invalid."))))
     ;; Subcommand listing
     (match (sort-subcommands (configuration-configs config))
       ("" #f)
-      (subcommands (format port "~%Subcommands:~%~a~%" subcommands)))
+      (subcommands (format port "~%~a~%~a~%" subcommands-string subcommands)))
     ;; Synopsis
     (if (configuration-long config)
         (format port "~%~a~%"
@@ -214,8 +217,8 @@ do so and emit it to PORT."
             ((? license? license)
              (string-append (license->string license) "\n"))
             (_ ""))
-          "This is free software: you are free to change and redistribute it.
-There is NO WARRANTY, to the extent permitted by law."))
+          (_ "This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.")))
 
 ;;; FIXME: We should have a way to parse non-keyword args  [Version 0.9.5?]
 ;;;        We should do this by:
@@ -268,7 +271,7 @@ shorter alternative to the full name."
                   ((vrsion vrsion-num)
                    (cons* vrsion vrsion-num opts))
                   (_ (throw 'config-spec
-                            "This should really not have happened.")))
+                            (_ "This should really not have happened."))))
                 opts)
             license-augment))
     (define (license-augment opts)
@@ -279,14 +282,14 @@ shorter alternative to the full name."
               (#f opts)
               (((? integer? years) ...) (cons (copyright-maker years) opts))
               (_ (throw 'config-spec
-                        "Invalid COPYRIGHT: should be a list of years.")))
+                        (_ "Invalid COPYRIGHT: should be a list of years."))))
             author-augment))
     (define (author-augment opts)
       (list (match author
               (#f opts)
               ((? string?) (cons (author-maker author) opts))
               (_ (throw 'config-spec
-                        "Invalid AUTHOR: should be a string.")))
+                        (_ "Invalid AUTHOR: should be a string."))))
             #t))
 
     (match next
@@ -306,11 +309,11 @@ shorter alternative to the full name."
                ;; to be written to it.
                (if (any open-option? values)
                    (throw 'config-spec
-                          "Open options specified, but no config-dir!")
+                          (_ "Open options specified, but no config-dir!"))
                    config-dir))
               ;; We've been given something odd for config-dir.
               (_ (throw 'config-spec
-                        "CONFIG-DIR should be an absolute filepath, or #f.")))
+                        (_ "CONFIG-DIR: absolute dirpatch, or #f."))))
            ;; Augment values and split it into opts & confs
            ,@(let loop ((values (augment-opts
                                  (augment-if usage usage?
@@ -334,23 +337,24 @@ shorter alternative to the full name."
                   (loop rest opts (cons (cons (configuration-name conf) conf)
                                         confs)))
                  (_ (throw 'config-spec
-                                   "Invalid option in configuration."))))
+                           (_ "Invalid option in configuration.")))))
            ,(match terse
               ((and (? string?) (? (compose (cut <= <> 40) string-length)))
                terse)
               (_ (throw 'config-spec
-                        "TERSE should be a string of length less than 40.")))
+                        (_ "TERSE should be a string shorter than 40."))))
            ,(match long
               ((or (? string?) #f) long)
-              (_ (throw 'config-spec "LONG should be a string, or #f.")))
+              (_ (throw 'config-spec
+                        (_ "LONG should be a string, or #f."))))
            ,(match parser
               ((? configuration-parser?) parser)
               (_ (throw 'config-spec
-                        "PARSER should be a configuration parser.")))
+                        (_ "PARSER should be a configuration parser."))))
            ,(match alias
               ((or (? symbol?) #f) alias)
               (_ (throw 'config-spec
-                        "ALIAS should be a symbol, if specified."))))))
+                        (_ "ALIAS should be a symbol, if specified.")))))))
 
 
 ;;;; Plumbing
@@ -414,11 +418,11 @@ the %io-monad."
   (define (find-subconfiguration configuration config-name)
     "Return the subconfiguration in CONFIGURATION specified by CONFIG-NAME."
     (match (assq config-name (configuration-configs configuration))
-      (#f (throw 'merge-config-file-values "Unknown subconfiguration: "
-                 config-name))
+      (#f (throw 'merge-config-file-values
+                 (_ "Unknown subconfiguration: ") config-name))
       ((name . (? configuration? subconfiguration)) subconfiguration)
-      (_ (throw 'merge-config-file-values "Not a <configuration>: "
-                config-name))))
+      (_ (throw 'merge-config-file-values
+                (_ "Not a <configuration>: ") config-name))))
 
   (if (configuration-inheritance configuration)
       ;; Inherit workflow
@@ -617,7 +621,8 @@ This formatting is intended for the brief summary of our command."
                                      ,short-rest
                                      ,(cons (string-append "[--" n "=" e "]")
                                             long-rest))))))
-                         (_ (throw 'config "Should not have happened"))))))
+                         (_ (throw 'config
+                                   (_ "Should not have happened")))))))
                   '(() () () ())
                   opts)))
    (string-append "\n" (whitespace))))

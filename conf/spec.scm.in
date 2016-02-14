@@ -121,6 +121,9 @@
             license-maker
             license->string
             license?
+
+            _
+            N_
             ))
 
 ;;; Commentary:
@@ -253,6 +256,17 @@
 ;;; Code:
 
 
+;; Configure our Gettext use
+(define %gettext-domain "guile-config")
+(define _
+  (begin
+    (bindtextdomain %gettext-domain "@localedir@")
+    (cut gettext <> %gettext-domain)))
+(define N_
+  (begin
+    (bindtextdomain %gettext-domain "@localedir@")
+    (cut ngettext <> <> <> %gettext-domain)))
+
 ;;;; Options
 
 ;;;;; Private Options
@@ -474,8 +488,8 @@ application."
                           #:test license?)
                         values))
     (_ (throw 'license-maker
-              "Invalid LICENSE: should be 'gplv3+, 'agplv3+, a license object
-or a string naming a license."))))
+              (_ "Invalid LICENSE: should be 'gplv3+, 'agplv3+, a license object
+or a string naming a license.")))))
 
 (define (license->string license)
   "Turn <license> LICENSE into a string for summary and/or printing."
@@ -484,7 +498,7 @@ or a string naming a license."))))
      (string-join `("License:" ,name) " "))
     (($ <license> id name url)
      (string-append "License " id ": " name " <" url ">"))
-    (_ (throw 'license->string "Unexpected LICENSE."))))
+    (_ (throw 'license->string (_ "Unexpected LICENSE.")))))
 
 (define (license-generic name)
   "Generate a simple <license> out of NAME."
@@ -555,7 +569,7 @@ help output."
 (define (check-name name)
   (match name
     ((? symbol?) name)
-    (_ (throw 'config-spec "NAME should be a symbol"))))
+    (_ (throw 'config-spec (_ "NAME should be a symbol")))))
 
 (define (check-value value)
   (match value
@@ -565,45 +579,45 @@ help output."
   (match test
     ((? procedure?) test)
     (_ (throw 'config-spec
-              "TEST should be a predicate procedure."))))
+              (_ "TEST should be a predicate procedure.")))))
 
 (define (check-handler handler)
   (match handler
     ((? procedure?) handler)
     (_ (throw 'config-spec
-              "HANDLER should be a procedure."))))
+              (_ "HANDLER should be a procedure.")))))
 
 (define (check-single-char char)
   (match char
     ((or (? char?) #f) char)
     (_ (throw 'config-spec
-              "SINGLE-CHAR should be a character or #f."))))
+              (_ "SINGLE-CHAR should be a character or #f.")))))
 
 (define (check-terse terse)
   (match terse
     ((and (? string?)
           (? (compose (cut <= <> 40) string-length))) terse)
     (_ (throw 'config-spec
-              "TERSE should be a string and less than 40 chars."))))
+              (_ "TERSE should be a string and less than 40 chars.")))))
 
 (define (check-long long)
   (match long
     ((or (? string?) #f) long)
-    (_ (throw 'config-spec "LONG should be a string."))))
+    (_ (throw 'config-spec (_ "LONG should be a string.")))))
 
 (define (check-cli cli)
   (match cli
     ((? boolean?) cli)
-    (_ (throw 'config-spec "CLI should be a boolean."))))
+    (_ (throw 'config-spec (_ "CLI should be a boolean.")))))
 
 (define (check-example example)
   (match example
     ((? string?) example)
-    (_ (throw 'config-spec "EXAMPLE should be a string."))))
+    (_ (throw 'config-spec (_ "EXAMPLE should be a string.")))))
 
 (define (check-optional optional)
   (match optional
     ((? boolean?) optional)
-    (_ (throw 'config-spec "OPTIONAL should be a boolean."))))
+    (_ (throw 'config-spec (_ "OPTIONAL should be a boolean.")))))
 
 ;;; config-spec.scm ends here.
