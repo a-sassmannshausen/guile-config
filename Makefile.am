@@ -68,7 +68,7 @@ EXTRA_DIST +=					\
   test-env.in					\
   README					\
   ChangeLog					\
-  Authors					\
+  AUTHORS					\
   NEWS						\
   $(TESTS)
 
