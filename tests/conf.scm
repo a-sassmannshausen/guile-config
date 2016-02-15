@@ -55,7 +55,7 @@
              "A test configuration with a terse longer than 40 chars."
              '())))
         (lambda (k t)
-          (string=? "TERSE should be a string of length less than 40." t))))
+          (string=? "TERSE should be a string shorter than 40." t))))
 
 (test-assert "Configuration creation."
   (match (configuration 'test-configuration
