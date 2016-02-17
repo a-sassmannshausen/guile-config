@@ -1,6 +1,6 @@
 ;; spec.scm --- tests for spec    -*- coding: utf-8 -*-
 ;;
-;; Copyright (C) 2014 Alex Sassmannshausen <alex@pompo.co>
+;; Copyright (C) 2015 Alex Sassmannshausen <alex@pompo.co>
 ;;
 ;; Author: Alex Sassmannshausen <alex@pompo.co>
 ;; Created: 04 December 2015
