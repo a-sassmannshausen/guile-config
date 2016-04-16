@@ -20,7 +20,7 @@ copy of the license is included in the section entitled ``GNU Free
 Documentation License''.
 @end copying
 
-@dircategory Guile
+@dircategory The Algorithmic Language Scheme
 @direntry
 * Guile Config: (Config).       Declarative program configuration
 @end direntry
