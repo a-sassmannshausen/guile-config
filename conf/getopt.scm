@@ -150,8 +150,9 @@ of further collapsing CONFIGS, if CONFIGS is not null."
         configs))
 
 (define (establish-subcommands configuration cli-params)
-  "Return a breadcrumb trail leading to the requested subcommand that is part
-of CONFIGURATION and requested by CLI-PARAMS."
+  "Return a breadcrumb trail of '(subcommand-name alias) pairs leading to the
+requested subcommand that is part of CONFIGURATION and requested by
+CLI-PARAMS."
   ;; FIXME: currently, a free-param to a program that accidentally matches the
   ;; first subcommand name, will trigger that subcommand rather than acting as
   ;; that command's free-param.
@@ -169,8 +170,8 @@ of CONFIGURATION and requested by CLI-PARAMS."
     (match free-params
       (((? string? candidate) . rest)
        (match (assq (string->symbol candidate) configs)
-         ((k . ($ <configuration> name _ opts configs _ _))
-          (establish rest (cons name subcommands)
+         ((k . ($ <configuration> name _ opts configs _ _ _ alias))
+          (establish rest `((,name ,alias) . ,subcommands)
                      (expand-configs configs)))
          ;; Could be #f or an <option>
          (_ (reverse subcommands))))
@@ -198,12 +199,19 @@ GETOPTS (normally the list of commandline arguments to a program) into
         ;; filter them out ourselves.
         (let lp ((subcommands subcommands)
                  (free-params (option-ref getopts '() '())))
-          (match subcommands
-            (() free-params)
-            (((? (compose (cut string=? <> (first free-params))
-                          (cut symbol->string <>))) . rest)
-             (lp rest (cdr free-params)))
-            (_ free-params)))))
+          (if (null? free-params)
+              free-params                ; No free params, no concern
+              (match subcommands
+                (() free-params)         ; No subcmd, no concern
+                (((subcmd alias) . rest) ; Analyse subcmd
+                 (if (or (string=? (first free-params) (symbol->string subcmd))
+                         (and alias (string=? (first free-params)
+                                              (symbol->string subcmd))))
+                     ;; We have a match -> remove it, and recurse to see if we
+                     ;; have further matches.
+                     (lp rest (cdr free-params))
+                     ;; No match, hence we have no further subcmds
+                     free-params)))))))
 
 (define (getopt-merger getopts)
   "Return a procedure taking a configuration-value from a <configuration>,

@@ -81,7 +81,14 @@
                      (((? string?) ...) #t)
                      (_ #f))
             #:handler (lambda (csv)
-                            (string-split csv #\,))))
+                        (string-split csv #\,)))
+          (configuration
+           'test-sub "A test subcommand configuration."
+           '())
+          (configuration
+           'test-second "A test subcommand configuration."
+           '()
+           #:alias 'sec))
     #:config-dir "/tmp"))
 
 
@@ -247,23 +254,25 @@
                             (list
                              (public-option 'hidden-option
                                "A root-level hidden option."
-                               #:value #t)))))))
+                               #:value #t))))
+                         #:alias 'lvl2)))
                     input)
                    output))
          '(("Script-name" "--hidden-option" "level3" "level2")
            ("Script-name" "--hidden-option" "level2")
-           ("Script-name" "--hidden-option" "level2" "level3"))
+           ("Script-name" "level2" "--hidden-option" "level3"))
          '(()
-           (level2)
-           (level2 level3))))
+           ((level2 lvl2))
+           ((level2 lvl2) (level3 #f)))))
 
 ;;;;; Tests for: derive/merge-config-getopt
 
 (test-assert "derive/merge-config-getopt"
   (every (lambda (in test)
-           (test (derive/merge-config-getopt test-config in)))
-         '(("command" "--bool" "--num" "8" "--csv" "bye,planet")
-           ("command" "--bool" "-n" "8" "--csv" "bye,planet")
+           (test (derive/merge-config-getopt test-config in '((test-sub #f)
+                                                              (test-second sec)))))
+         '(("command" "test-sub" "--bool" "--num" "8" "--csv" "bye,planet")
+           ("command" "test-sub" "sec" "--bool" "-n" "8" "--csv" "bye,planet")
            ("command" "--obool" "--onum" "8" "--ocsv" "bye,planet")
            ("command" "bla" "hooray" "--obool" "--onum" "8"))
          `(,(lambda (getopt)

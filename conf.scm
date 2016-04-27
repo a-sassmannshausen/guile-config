@@ -432,7 +432,7 @@ the %io-monad."
       ;; Simple workflow
       (match subcommands
         (() (read-merge configuration))
-        ((first . rest)
+        (((first . alias) . rest)
          (merge-config-file-values (find-subconfiguration configuration first)
                                    rest)))))
 
