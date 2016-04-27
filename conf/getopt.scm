@@ -85,7 +85,10 @@
 ;;; are examples, and thus pass).
 (define (derive-free-params config cli-params)
   "Return the free parameters, i.e. non key-word arguments, contained in
-CLI-PARAMS with respect to CONFIG."
+CLI-PARAMS with respect to CONFIG.
+
+This procedure is not used for the derivation of free params for the
+`option-ref '()' case.  For that, see `merge-config-getopt'."
   ;; We must return the free-params of config.  We use getopt-long to do
   ;; this.  However: config->getopt-long expects a flat config, and we have a
   ;; nested config.  CLI-PARAMS could refer to options from any of the nested
@@ -174,21 +177,33 @@ of CONFIGURATION and requested by CLI-PARAMS."
       ;; We have no free params (i.e. no subcommand specified).
       (() (reverse subcommands)))))
 
-(define (derive/merge-config-getopt config cli-params)
+(define (derive/merge-config-getopt config cli-params subcommands)
   "Return the <getopt> resulting from merging the list CLI-PARAMS into
-<configuration> CONFIG."
-  (apply getopt (merge-config-getopt config
-                                     (config->getopt-long config
-                                                          cli-params))))
+<configuration> CONFIG.
 
-(define (merge-config-getopt config getopts)
+We will establish free-params, excluding all SUBCOMMANDS invoked by the
+end-user from them."
+  (apply getopt (merge-config-getopt config
+                                     (config->getopt-long config cli-params)
+                                     subcommands)))
+
+(define (merge-config-getopt config getopts subcommands)
   "Return the <configuration> resulting from merging the getopt-long interface
 GETOPTS (normally the list of commandline arguments to a program) into
 <configuration> CONFIG."
   (list (set-configuration-options config
-                              (map (getopt-merger getopts)
-                                   (configuration-options config)))
-        (option-ref getopts '() '())))
+                                   (map (getopt-merger getopts)
+                                        (configuration-options config)))
+        ;; Because getopt-long cannot filter out subcommands, we must now
+        ;; filter them out ourselves.
+        (let lp ((subcommands subcommands)
+                 (free-params (option-ref getopts '() '())))
+          (match subcommands
+            (() free-params)
+            (((? (compose (cut string=? <> (first free-params))
+                          (cut symbol->string <>))) . rest)
+             (lp rest (cdr free-params)))
+            (_ free-params)))))
 
 (define (getopt-merger getopts)
   "Return a procedure taking a configuration-value from a <configuration>,

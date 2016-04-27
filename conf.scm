@@ -92,7 +92,7 @@ configuration files."
        (subcommands -> (establish-subcommands configuration args))
        (merged-config (merge-config-file-values configuration subcommands)))
     ;; derive/merge-config-getopt is non-monadic, so we wrap in return!
-    (return (derive/merge-config-getopt merged-config args))))
+    (return (derive/merge-config-getopt merged-config args subcommands))))
 
 (define (getmio-config-auto args config)
   "Return a monadic IO value, which, when evaluated, returns the
