@@ -38,6 +38,7 @@
   #:use-module (ice-9 match)
   #:use-module (conf monads)
   #:use-module (conf monads io)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-64)
   )
 
@@ -181,6 +182,51 @@
                #:config-dir "/tmp")))
     (file-exists? (string-join '("/tmp" "test-config")
                                file-name-separator-string))))
+
+;;;;; Tests for: option-ref
+
+(test-assert "Option-ref"
+  (let ((config (configuration
+                 'test-config
+                 "Test configuration."
+                 (list (public-option 'test
+                                      "Value test."
+                                      #:value "test"
+                                      #:test string?)
+                       (public-option 'target
+                                      "Boolean test."
+                                      #:value #f)
+                       (private-option 'priv
+                                       "Private Option."
+                                       #:value #f)
+                       (configuration 'subconf
+                                      "A subconfiguration."
+                                      (list
+                                       (public-option 'verbose
+                                                      "Boolean test."
+                                                      #:value #f))))
+                 #:help? #t
+                 #:config-dir "/tmp")))
+    (every
+     (lambda (cmd-line option result)
+       (let ((getopt (getopt-config cmd-line config)))
+         (equal? (option-ref getopt option) result)))
+     ;; Command line
+     '(("script" "--test" "hello")
+       ;;("script" "--test" "hello" "--verbose")  ; Bails out OK (no such opt)
+       ("script" "--target")
+       ("script" "subconf" "blah" "--verbose")
+       ("script" "subconf" "blah" "--verbose")
+       ;;("script" "subconf" "blah" "--target")   ; Bails out OK (no such opt)
+       )
+     ;; Option
+     '(test
+       target
+       verbose
+       ()
+       )
+     ;; Result
+     '("hello" #t #t ("blah")))))
 
 (test-end "config")
 
