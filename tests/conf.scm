@@ -39,6 +39,7 @@
   #:use-module (conf monads)
   #:use-module (conf monads io)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-64)
   )
 
@@ -184,49 +185,50 @@
                                file-name-separator-string))))
 
 ;;;;; Tests for: option-ref
-
-(test-assert "Option-ref"
-  (let ((config (configuration
-                 'test-config
-                 "Test configuration."
-                 (list (public-option 'test
-                                      "Value test."
-                                      #:value "test"
-                                      #:test string?)
-                       (public-option 'target
-                                      "Boolean test."
+(let* ((config (configuration
+                'test-config
+                "Test configuration."
+                (list (public-option 'test
+                                     "Value test."
+                                     #:value "test"
+                                     #:test string?)
+                      (public-option 'target
+                                     "Boolean test."
+                                     #:value #f)
+                      (private-option 'priv
+                                      "Private Option."
                                       #:value #f)
-                       (private-option 'priv
-                                       "Private Option."
-                                       #:value #f)
-                       (configuration 'subconf
-                                      "A subconfiguration."
-                                      (list
-                                       (public-option 'verbose
-                                                      "Boolean test."
-                                                      #:value #f))))
-                 #:help? #t
-                 #:config-dir "/tmp")))
-    (every
-     (lambda (cmd-line option result)
-       (let ((getopt (getopt-config cmd-line config)))
-         (equal? (option-ref getopt option) result)))
-     ;; Command line
-     '(("script" "--test" "hello")
-       ;;("script" "--test" "hello" "--verbose")  ; Bails out OK (no such opt)
-       ("script" "--target")
-       ("script" "subconf" "blah" "--verbose")
-       ("script" "subconf" "blah" "--verbose")
-       ;;("script" "subconf" "blah" "--target")   ; Bails out OK (no such opt)
-       )
-     ;; Option
-     '(test
-       target
-       verbose
-       ()
-       )
-     ;; Result
-     '("hello" #t #t ("blah")))))
+                      (configuration 'subconf
+                                     "A subconfiguration."
+                                     (list
+                                      (public-option 'verbose
+                                                     "Boolean test."
+                                                     #:value #f))
+                                     #:alias 'sc))
+                #:help? #t
+                #:config-dir "/tmp"))
+       (getopt (cut getopt-config <> config)))
+  (test-equal "Simple param"
+    (option-ref (getopt '("script" "--test" "hello")) 'test)
+    "hello")
+  (test-equal "Simple Boolean param"
+    (option-ref (getopt '("script" "--target")) 'target)
+    #t)
+  (test-equal "Subconf Boolean param"
+    (option-ref (getopt '("script" "subconf" "blah" "--verbose")) 'verbose)
+    #t)
+  (test-equal "Subconf positional param"
+    (option-ref (getopt '("script" "subconf" "blah" "--verbose")) '())
+    '("blah"))
+  (test-equal "Subconf aliased positional param"
+    (option-ref (getopt '("script" "sc" "blah" "--verbose")) '())
+    '("blah"))
+  (test-equal "Subconf aliased empty positional param"
+    (option-ref (getopt '("script" "sc" "--verbose")) '())
+    '())
+  ;; ("script" "--test" "hello" "--verbose")  ; Bails out OK (no such opt)
+  ;; ("script" "subconf" "blah" "--target")   ; Bails out OK (no such opt)
+  )
 
 (test-end "config")
 

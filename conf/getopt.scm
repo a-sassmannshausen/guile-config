@@ -206,7 +206,7 @@ GETOPTS (normally the list of commandline arguments to a program) into
                 (((subcmd alias) . rest) ; Analyse subcmd
                  (if (or (string=? (first free-params) (symbol->string subcmd))
                          (and alias (string=? (first free-params)
-                                              (symbol->string subcmd))))
+                                              (symbol->string alias))))
                      ;; We have a match -> remove it, and recurse to see if we
                      ;; have further matches.
                      (lp rest (cdr free-params))
