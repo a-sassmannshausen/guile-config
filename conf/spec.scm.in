@@ -104,6 +104,8 @@
             set-configuration-parser
             configuration-alias
             set-configuration-alias
+            configuration-inherit
+            set-configuration-inherit
 
             configuration-file
             configuration-write
@@ -398,7 +400,8 @@ have to take an argument."
 ;;;; Configuration
 
 (define-immutable-record-type <configuration>
-  (mecha-configuration name dir options configs terse long parser alias)
+  (mecha-configuration name dir options configs terse long parser alias
+                       inherit)
   configuration?
   (name    configuration-name    set-configuration-name)
   (dir     configuration-dir     set-configuration-dir)
@@ -407,7 +410,8 @@ have to take an argument."
   (terse   configuration-terse   set-configuration-terse)
   (long    configuration-long    set-configuration-long)
   (parser  configuration-parser  set-configuration-parser)
-  (alias   configuration-alias   set-configuration-alias))
+  (alias   configuration-alias   set-configuration-alias)
+  (inherit configuration-inherit set-configuration-inherit))
 
 (define (configuration-print configuration)
   (match configuration

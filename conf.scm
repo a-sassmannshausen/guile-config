@@ -232,7 +232,7 @@ There is NO WARRANTY, to the extent permitted by law.")))
 ;;;   error if not).
 (define* (configuration name terse values #:key config-dir
            long help? usage? version? license copyright author
-           (version-test? string?) (parser simple-parser) (alias #f))
+           (version-test? string?) (parser simple-parser) alias inherit)
   "Return a configuration.  NAME should be a symbol naming the configuration.
 TERSE is a < 40 char description; VALUES is a list of config-options.  The
 optional arguments:
@@ -254,7 +254,13 @@ If omitted, this will default to `string?'.
 configuration file associated with this configuration.  It defaults to
 SIMPLE-PARSER.
  - ALIAS: an additional name for this configuration, generally intended as a
-shorter alternative to the full name."
+shorter alternative to the full name.
+ - INHERIT: If #t, inherit options and their values from parent
+configurations.  Defaults to #f, and should only be used in subcommand
+configurations.
+
+The standard options, version, help and usage all inherit by default, when
+inherit is set to #t."
   ;; If we have been provided with convenience option values, we should
   ;; augment our configuration-options before finally instantiating
   ;; <configuration>.
@@ -354,7 +360,11 @@ shorter alternative to the full name."
            ,(match alias
               ((or (? symbol?) #f) alias)
               (_ (throw 'config-spec
-                        (_ "ALIAS should be a symbol, if specified.")))))))
+                        (_ "ALIAS should be a symbol, if specified."))))
+           ,(match inherit
+              ((or #t #f) inherit)
+              (_ (throw 'config-spec
+                        (_ "INHERIT should be #t or #f, if specified.")))))))
 
 
 ;;;; Plumbing
