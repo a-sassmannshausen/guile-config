@@ -84,8 +84,12 @@
             open-option
 
             option?
-            option-inherit
             option-name
+            option-value
+            option-test
+            option-terse
+            option-long
+            option-inherit
 
             <configuration>
             mecha-configuration
@@ -409,17 +413,30 @@ configurations (default #t)."
     ((or (? public-option?) (? private-option?) (? open-option?)) #t)
     (_ #f)))
 
-(define (option-inherit option)
+(define (option-generic priproc pubproc openproc option)
   (match option
-    ((? private-option?) (prioption-inherit option))
-    ((? public-option?) (puboption-inherit option))
-    ((? open-option?) (openoption-inherit option))))
+    ((? private-option?) (priproc option))
+    ((? public-option?) (pubproc option))
+    ((? open-option?) (openproc option))))
 
 (define (option-name option)
-  (match option
-    ((? private-option?) (prioption-name option))
-    ((? public-option?) (puboption-name option))
-    ((? open-option?) (openoption-name option))))
+  (option-generic prioption-name puboption-name openoption-name option))
+
+(define (option-value option)
+  (option-generic prioption-value puboption-value openoption-value option))
+
+(define (option-test option)
+  (option-generic prioption-test puboption-test openoption-test option))
+
+(define (option-terse option)
+  (option-generic prioption-terse puboption-terse openoption-terse option))
+
+(define (option-long option)
+  (option-generic prioption-long puboption-long openoption-long option))
+
+(define (option-inherit option)
+  (option-generic prioption-inherit puboption-inherit openoption-inherit
+                  option))
 
 
 ;;;; Configuration

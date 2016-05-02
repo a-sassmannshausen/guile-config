@@ -139,10 +139,7 @@ found."
       (getopt-free-params getopt)
       (match (assq key (configuration-options (getopt-configuration getopt)))
         (#f default)
-        ((k . v) (match v
-                   (($ <puboption> n v) v)
-                   (($ <prioption> n v) v)
-                   (($ <openoption> n v) v))))))
+        ((name . option) (option-value option)))))
 
 (define (subcommand getopt)
   "Return the currently active subcommand of <configuration> CONFIGURATION.
@@ -333,11 +330,7 @@ inherit is set to #t."
                        (list opts confs)))
                  (((? option? opt) . rest)
                   (loop rest
-                        (cons
-                         (match opt
-                           (($ <prioption> name) (cons name opt))
-                           (($ <puboption> name) (cons name opt))
-                           (($ <openoption> name) (cons name opt))) opts)
+                        (cons `(,(option-name opt) . ,opt) opts)
                         confs))
                  (((? configuration? conf) . rest)
                   (loop rest opts (cons (cons (configuration-name conf) conf)
