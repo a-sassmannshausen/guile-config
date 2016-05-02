@@ -92,7 +92,8 @@ configuration files."
        (subcommands -> (establish-subcommands configuration args))
        (merged-config (merge-config-file-values configuration subcommands)))
     ;; derive/merge-config-getopt is non-monadic, so we wrap in return!
-    (return (derive/merge-config-getopt merged-config args subcommands))))
+    (return (derive/merge-config-getopt merged-config args subcommands
+                                        configuration))))
 
 (define (getmio-config-auto args config)
   "Return a monadic IO value, which, when evaluated, returns the
@@ -162,23 +163,16 @@ so and emit it to PORT."
     (match (configuration-options config)
       (((names . (? option? opts)) ...)
        ;; Short Help
-       (format port "~a~a ~a~%" usage-string
-               (string-append (symbol->string (configuration-name config))
-                              (match (configuration-alias config)
-                                (#f "")
-                                (alias
-                                 (string-append " | "
-                                                (symbol->string alias)))))
-               (sort-opts (filter-opts opts)
-                          (+ (string-length usage-string)
-                             (string-length (symbol->string
-                                             (configuration-name config)))
-                             (match (configuration-alias config)
-                               (#f 0)
-                               (alias
-                                (+ (string-length " | ")
-                                   (string-length (symbol->string alias)))))
-                             1)))
+       (let ((full-cmd-name (match (getopt-command-trail getopt)
+                              ((root-cmd-name . ((subcmds aliases) ...))
+                               (string-join (map symbol->string
+                                                 (cons root-cmd-name
+                                                       subcmds)))))))
+         (format port "~a~a ~a~%" usage-string full-cmd-name
+                 (sort-opts (filter-opts opts)
+                            (+ (string-length usage-string)
+                               (string-length full-cmd-name)
+                               1))))
        ;; Detailed Help
        (format port "~%~a~%~a~%" options-string
                (sort-detailed-opts (filter-opts opts))))
@@ -494,17 +488,27 @@ We only call this function if CONFIG wants its ancestral inheritage!"
              ;; We don't want this option in merged.
              merged)))
 
-    (set-configuration-options
-     merged-inheritance
-     (match config
-       (($ <configuration> name dir options)
-        (let lp ((options options)
-                 (merged  (configuration-options merged-inheritance)))
-          (match options
-            (() merged)
-            (((name . opt) . rest)
-             (lp rest (merge name opt merged)))
-            (_ (throw 'merge-inheritance))))))))
+    (let ((options (match config
+                     (($ <configuration> name dir options)
+                      (let lp ((options options)
+                               (merged  (configuration-options
+                                         merged-inheritance)))
+                        (match options
+                          (() merged)
+                          (((name . opt) . rest)
+                           (lp rest (merge name opt merged)))
+                          (_ (throw 'merge-inheritance))))))))
+      (if final
+          (mecha-configuration (configuration-name config)
+                               (configuration-dir config)
+                               options
+                               (configuration-configs config)
+                               (configuration-terse config)
+                               (configuration-long config)
+                               (configuration-parser config)
+                               (configuration-alias config)
+                               (configuration-inherit config))
+          (set-configuration-options merged-inheritance options))))
 
   (mlet* %io-monad
       ((read-inheritance (mapm %io-monad read-merge inheritance))

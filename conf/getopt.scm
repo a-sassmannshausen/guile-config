@@ -32,6 +32,7 @@
                 getopt-print
                 getopt-free-params
                 getopt-configuration
+                getopt-command-trail
                 derive/merge-config-getopt
                 establish-subcommands
                 configuration->getopt-spec))
@@ -42,10 +43,11 @@
 ;;; free params.
 
 (define-record-type <getopt>
-  (getopt config free-params)
+  (getopt config free-params command-trail)
   getopt?
   (config getopt-configuration)
-  (free-params getopt-free-params))
+  (free-params getopt-free-params)
+  (command-trail getopt-command-trail))
 
 (define* (getopt-print getopt #:optional (port #t))
   "Print the <getopt> GETOPT to stdout or to PORT."
@@ -178,15 +180,18 @@ CLI-PARAMS."
       ;; We have no free params (i.e. no subcommand specified).
       (() (reverse subcommands)))))
 
-(define (derive/merge-config-getopt config cli-params subcommands)
+(define (derive/merge-config-getopt config cli-params subcommands root-config)
   "Return the <getopt> resulting from merging the list CLI-PARAMS into
 <configuration> CONFIG.
 
 We will establish free-params, excluding all SUBCOMMANDS invoked by the
 end-user from them."
-  (apply getopt (merge-config-getopt config
-                                     (config->getopt-long config cli-params)
-                                     subcommands)))
+  (match (merge-config-getopt config (config->getopt-long config cli-params)
+                              subcommands)
+    ((options positional-params)
+     (getopt options
+             positional-params
+             (cons (configuration-name root-config) subcommands)))))
 
 (define (merge-config-getopt config getopts subcommands)
   "Return the <configuration> resulting from merging the getopt-long interface

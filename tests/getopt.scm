@@ -269,8 +269,10 @@
 
 (test-assert "derive/merge-config-getopt"
   (every (lambda (in test)
-           (test (derive/merge-config-getopt test-config in '((test-sub #f)
-                                                              (test-second sec)))))
+           (test (derive/merge-config-getopt test-config in
+                                             '((test-sub #f)
+                                               (test-second sec))
+                                             test-config)))
          '(("command" "test-sub" "--bool" "--num" "8" "--csv" "bye,planet")
            ("command" "test-sub" "sec" "--bool" "-n" "8" "--csv" "bye,planet")
            ("command" "--obool" "--onum" "8" "--ocsv" "bye,planet")
