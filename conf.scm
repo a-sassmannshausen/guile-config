@@ -371,80 +371,176 @@ inherit is set to #t."
 
 ;; On the merge process:
 ;; We have
-;; a) a list of subcommands, where the last element is the subcommand to
-;;    finally executed, and each prior element is a breadcrumb on the trail to
+;; a) a list of SUBCOMMANDS, where the last element is the subcommand to
+;;    finally execute, and each prior element is a breadcrumb on the trail to
 ;;    it.  The car is the next configuration on this breadcrumb trail.
-;; b) configuration, which is the full configuration as defined by the app.
+;; b) CONFIGURATION, which is the full configuration as defined by the app.
 ;;
-;; [obsolete]
-;; We want:
-;; A new configuration which consists only of `subcommand's' configuration,
-;; augmented by the default settings and config-file settings from parent
-;; subcommands.
-;; This means:
-;; a) each setting that is not explicitly defined in `subcommand',
-;;    but which exists in any parent, is added with the parent's default or
-;;    config file value (all <configuration>s, except those in `subcommand'
-;;    will simply be dropped).
-;; b) each setting that is defined in `subcommand', and also in a parent
-;;    command will use the value from the `subcommand' config or it's
-;;    default.
-;; c) We return this new configuration for parsing by
-;;    `derive/merge-config...', so that any cli args passed that are valid for
-;;    parent commands are valid for the child command.
-;; [obsolete] reasoning:
-;; This could be counter-intuitive.  I like this idea as it could
-;; significantly shorten configuration definitions, but it should rely on an
-;; 'inheritance' flag in configuration.  This flag could tell that all
-;; lower level configurations should inherit from their 'inheritance #t'
-;; parent.
+;; Inheritance:
+;; Inheritance in this context means that a subcommand's configuration
+;; inherits the *-options from its parent.
+;; This inheritance is switched off by default, and can be switched on at:
+;; - configuration level    [default: off]
+;; - parent *-option level  [default: on]
 ;;
+;; This means that:
+;; - switching inheritance on at the 'configuration' level will result in
+;;   all 'parent *-options' being inherited to this subcommand configuration,
+;;   except for those that have been explicitly switched 'off' at the option
+;;   level.
+;; - inheritance at the '*-option level' can veto inheritance at the
+;;   'configuration level': #t means inherit if subcommand config wants it; #f
+;;   means force non-inheritance.
 ;;
-;; Non-inheritance version:
-;; A new configuration that simply reflects the configuration as defined by
-;; `subcommand'.
+;; There are 3 separate operations here:
+;; 1) locate a given configuration,
+;; 2) read that configuration's config file,
+;; 3) merge the parent configuration into this newly updated configuration if
+;;    inheritance is switched on
 ;;
-;; There are 3 separate operations here: locate a given configuration, read
-;; that configuration's config file, merge the parent configuration into this
-;; newly updated configuration if necessary.
+;; First implementation implements just the per-configuration inheritance
+;; flag.
 
-;; => io read -> configuration.
+;; => configuration subcommands -> io configuration.
 (define (merge-config-file-values configuration subcommands)
   "Return a new configuration corresponding to the subcommand specified by the
 breadcrumb trail in SUBCOMMANDS, and based on CONFIGURATION which has been
 augmented by the configuration values from its configuration file."
-  (define configuration-inheritance (const #f))
-  (define (read-merge config)
-    "Read the configuration file for CONFIG and return an augmented config in
-the %io-monad."
-    (if (and (configuration-file config)
-             (any open-option? (configuration-options config)))
-        (mlet* %io-monad
-            ((old-io (set-io-input-file (configuration-file config)))
-             (config (configuration-read config))
-             (ignore (io-close-input-port old-io)))
-          (return config))
-        (with-monad %io-monad (return config))))
-  (define (find-subconfiguration configuration config-name)
-    "Return the subconfiguration in CONFIGURATION specified by CONFIG-NAME."
-    (match (assq config-name (configuration-configs configuration))
-      (#f (throw 'merge-config-file-values
-                 (_ "Unknown subconfiguration: ") config-name))
-      ((name . (? configuration? subconfiguration)) subconfiguration)
-      (_ (throw 'merge-config-file-values
-                (_ "Not a <configuration>: ") config-name))))
+  (let lp ((configuration configuration)
+           (subcommands subcommands)
+           (inheritance '()))
 
-  (if (configuration-inheritance configuration)
-      ;; Inherit workflow
-      ;; For now guaranteed not implemented.
-      ;; (recurse configuration subcommands)
-      configuration
-      ;; Simple workflow
-      (match subcommands
-        (() (read-merge configuration))
-        (((first . alias) . rest)
-         (merge-config-file-values (find-subconfiguration configuration first)
-                                   rest)))))
+    ;;; This needs to be monadified!
+    (match subcommands
+      ;; We have reached the end
+      ;; -> definitely merge in configuration file options, but if we have an
+      ;; inheritance, descendants, rejoyce!
+      (() (if (or (null? inheritance)
+                  (not (configuration-inherit configuration)))
+              ;; No subcommands and no inheritance, just read-merge!
+              (read-merge configuration)
+              (inheritance-merge configuration
+                                 (inheritance-prune inheritance))))
+      ;; We are still travelling to the final configuration
+      ;; -> augment inheritance, advance to next configuration, and loop!
+      (((config-name config-alias) . rest)
+       (lp (find-subconfiguration configuration config-name)
+           rest
+           ;; The list of configurations that will need to be read-merged as
+           ;; part of the inheritance
+           (cons configuration inheritance))))))
+
+;; => config -> io config
+(define (read-merge config)
+  "Read the configuration file for CONFIG and return an augmented config in
+the %io-monad."
+  (if (and (configuration-file config)
+           (any open-option? (configuration-options config)))
+      (mlet* %io-monad
+          ((old-io (set-io-input-file (configuration-file config)))
+           (config (configuration-read config))
+           (ignore (io-close-input-port old-io)))
+        (return config))
+      (with-monad %io-monad (return config))))
+
+;; => configuration config-name -> configuration
+(define (find-subconfiguration configuration config-name)
+  "Return the subconfiguration in CONFIGURATION specified by CONFIG-NAME."
+  (match (assq config-name (configuration-configs configuration))
+    (#f (throw 'find-subconfiguration
+               (_ "Unknown subconfiguration: ") config-name))
+    ((name . (? configuration? subconfiguration)) subconfiguration)
+    (_ (throw 'find-subconfiguration
+              (_ "Not a <configuration>: ") config-name))))
+
+;; => config inheritance -> io config
+(define (inheritance-merge config inheritance)
+  "Return CONFIG augmented by its configuration file and its INHERITANCE,
+i.e. all it's inheritance granting parent configurations and their
+configuration files.
+
+INHERITANCE is a reversed list of configurations that we must read-merge
+and continuously fold into our final configuration.
+
+CONFIG is the simple configuration of the final subcommand we're executing,
+i.e. the configuration we're merging into.
+
+We only call this function if CONFIG wants its ancestral inheritage!"
+
+  ;; We must:
+  ;; 1 monadic map (reverse inheritance) with read-merge, returning the
+  ;;   list of configuration file enhanced configs
+  ;; 2 fold the resulting list into config obeying the following rules:
+  ;;   + ignore all subconfigurations in the config we are merging; they
+  ;;     are not relevant.
+  ;;   + unless this is the final config, do not add config value if
+  ;;     *-option inherit #f
+  ;;   + if a config value does not exist, add it
+  ;;   + if a config value exists, overwrite it with the new value
+
+  (define* (merge-inheritance config merged-inheritance #:optional final)
+    (define (merge name option merged)
+      ;; Also deal with *-option inherit flag here!
+      ;; That's where final comes in!
+      (if (assv name merged)
+          (map (match-lambda
+                 (((? (cut eqv? name <>)) . old-option) (cons name option))
+                 (not-it not-it))
+               merged)
+          (cons `(,name . ,option) merged)))
+
+    (set-configuration-options
+     merged-inheritance
+     (match config
+       (($ <configuration> name dir options)
+        (let lp ((options options)
+                 (merged  (configuration-options merged-inheritance)))
+          (match options
+            (() merged)
+            (((name . opt) . rest)
+             (lp rest (merge name opt merged)))
+            (_ (throw 'merge-inheritance))))))))
+
+  (mlet* %io-monad
+      ((read-inheritance (mapm %io-monad read-merge inheritance))
+       (merged-ancestors -> (fold merge-inheritance
+                                  (car read-inheritance)
+                                  (cdr read-inheritance)))
+       (read-config      (read-merge config)))
+    ;; Merge inheritance with our final configuration, ensuring it's final!
+    (return (merge-inheritance read-config merged-ancestors #t))))
+
+(define (inheritance-prune inheritance)
+  "Return a list, a shortened and reversed version of inheritance, where all
+configurations appearing after the first configuration that has inheritance
+switched off, have been removed.
+
+This is an optimization, eliminating configurations from having to be merged
+when they will be dropped for inheritance purposes in any case."
+  ;; We would like the inheritance list to only consist of those inheritances
+  ;; that will not later be dropped because of a later configuration having
+  ;; inherit #f.
+  ;;
+  ;; This can be achieved by folding inheritance as follows:
+  ;; - list is received in reversed order, so direct parent of config comes
+  ;;   first.
+  ;; - fold ->
+  ;;   + if parent inherit #f, drop all further ancestors
+  ;;   + else, move further down the list
+  ;;
+  ;; This also reverses inheritance (as desired for inheritance merge)
+  (cdr
+   (fold (lambda (ancestor inheriting-ancestors)
+           (match inheriting-ancestors
+             ((#t . ancestors)
+              (match ancestor
+                ((? configuration-inherit)
+                 `(#t . ,(cons ancestor ancestors)))
+                (non-inheriting-ancestor
+                 `(#f . ,(cons ancestor ancestors)))))
+             (_ inheriting-ancestors)))
+         '(#t . ())
+         inheritance)))
 
 ;; => io write -> '()
 (define (ensure-config-files configuration)

@@ -230,6 +230,233 @@
   ;; ("script" "subconf" "blah" "--target")   ; Bails out OK (no such opt)
   )
 
+;;;;; Tests for: inheritance-merge
+
+(let* ((tersubconfig (configuration 'tersubconf
+                                    "A subconfiguration."
+                                    `(,(public-option 'bar
+                                                      "number"
+                                                      #:value 5
+                                                      #:test number?))
+                                    #:alias 'tsc))
+       (secsubconfig (configuration 'secsubconf
+                                    "A subconfiguration."
+                                    `(,(open-option 'verbose
+                                                      "Boolean test."
+                                                      #:value #t)
+                                      ,(private-option 'test
+                                                      "Different test."
+                                                      #:value "foo"
+                                                      #:test string?)
+                                      ,tersubconfig)
+                                    #:alias 'ssc
+                                    #:config-dir "/tmp"))
+       (prisubconfig (configuration 'prisubconf
+                                    "A subconfiguration."
+                                    `(,(public-option 'verbose
+                                                      "Boolean test."
+                                                      #:value #f)
+                                      ,secsubconfig)
+                                    #:alias 'psc))
+       (config (configuration
+                'test-config
+                "Test configuration."
+                `(,(public-option 'test
+                                  "Value test."
+                                  #:value "test"
+                                  #:test string?)
+                  ,(public-option 'target
+                                  "Boolean test."
+                                  #:value #f)
+                  ,(private-option 'priv
+                                   "Private Option."
+                                   #:value #f)
+                  ,prisubconfig)
+                #:help? #t
+                #:config-dir "/tmp")))
+  ;; inheritance-merge demands at least one inheritance entry.
+  ;; inheritance-merge simply merges what it finds in inheritance; it does not
+  ;; care about inherit flags for its arguments!
+  (test-assert "Inherit from root config"
+    (match (configuration-options
+            (run-io
+             ((@@ (conf) inheritance-merge) prisubconfig
+              `(,config))))
+      ((('verbose . ($ <puboption> 'verbose #f))
+        ('help . ($ <puboption> 'help #f))
+        ('test . ($ <puboption> 'test "test"))
+        ('target  . ($ <puboption> 'target #f))
+        ('priv . ($ <prioption> 'priv #f)))
+       #t)
+      (_ #f)))
+  (test-assert "Inherit and override root, first"
+    (match (configuration-options
+            (run-io
+             ((@@ (conf) inheritance-merge) secsubconfig
+              `(,config ,prisubconfig))))
+      ((('verbose . ($ <openoption> 'verbose #t))
+        ('help . ($ <puboption> 'help #f))
+        ('test . ($ <prioption> 'test "foo"))
+        ('target  . ($ <puboption> 'target #f))
+        ('priv . ($ <prioption> 'priv #f)))
+       #t)
+      (_ #f)))
+  (test-assert "Inherit, override and add root, first, second"
+    (match (configuration-options
+            (run-io
+             ((@@ (conf) inheritance-merge) tersubconfig
+              `(,config ,prisubconfig ,secsubconfig))))
+      ((('bar . ($ <puboption> 'bar 5))
+        ('verbose . ($ <openoption> 'verbose #t))
+        ('help . ($ <puboption> 'help #f))
+        ('test . ($ <prioption> 'test "foo"))
+        ('target  . ($ <puboption> 'target #f))
+        ('priv . ($ <prioption> 'priv #f)))
+       #t)
+      (_ #f))))
+
+;;;;; Tests for: find-subconfiguration
+
+(let ((config (configuration
+               'test-config
+               "Test configuration."
+               `(,(public-option 'test
+                                 "Value test."
+                                 #:value "test"
+                                 #:test string?)
+                 ,(public-option 'target
+                                 "Boolean test."
+                                 #:value #f)
+                 ,(private-option 'priv
+                                  "Private Option."
+                                  #:value #f)
+                 ,(configuration 'subconf
+                                 "A subconfiguration."
+                                 `(,(public-option 'verbose
+                                                   "Boolean test."
+                                                   #:value #f))
+                                 #:alias 'sc)
+                 ,(configuration 'secsubconf
+                                 "A subconfiguration."
+                                 `(,(public-option 'verbose
+                                                   "Boolean test."
+                                                   #:value #f))
+                                 #:alias 'ssc))
+                #:help? #t
+                #:config-dir "/tmp")))
+  (test-assert "Unknown subconfiguration"
+      (catch 'find-subconfiguration
+        (lambda () ((@@ (conf) find-subconfiguration) config 'missingconf))
+        (lambda args #t)))
+  (test-eqv "Find subconfiguration"
+    (configuration-name ((@@ (conf) find-subconfiguration) config 'subconf))
+    'subconf)
+  (test-eqv "Find second subconfiguration"
+    (configuration-name ((@@ (conf) find-subconfiguration) config 'secsubconf))
+    'secsubconf))
+
+;;;;; Tests for: inheritance-prune
+
+(let ((configs `(,(configuration 'one "" '() #:inherit #f)
+                 ,(configuration 'two "" '() #:inherit #t)
+                 ,(configuration 'three "" '() #:inherit #t)
+                 ,(configuration 'four "" '() #:inherit #t))))
+  (test-assert (match ((@@ (conf) inheritance-prune) configs)
+                 ((($ <configuration> 'one)) #t)
+                 (_ #f))))
+
+(let ((configs `(,(configuration 'one "" '() #:inherit #t)
+                 ,(configuration 'two "" '() #:inherit #t)
+                 ,(configuration 'three "" '() #:inherit #f)
+                 ,(configuration 'four "" '() #:inherit #t))))
+  (test-assert (match ((@@ (conf) inheritance-prune) configs)
+                 ((($ <configuration> 'three) ($ <configuration> 'two)
+                   ($ <configuration> 'one))
+                  #t)
+                 (_ #f))))
+
+;;;;; Tests for: merge-config-file-values
+
+(let* ((tersubconfig (configuration 'tersubconf
+                                    "A subconfiguration."
+                                    `(,(public-option 'bar
+                                                      "number"
+                                                      #:value 5
+                                                      #:test number?))
+                                    #:alias 'tsc #:inherit #t))
+       (secsubconfig (configuration 'secsubconf
+                                    "A subconfiguration."
+                                    `(,(open-option 'verbose
+                                                    "Boolean test."
+                                                    #:value #t)
+                                      ,(private-option 'test
+                                                       "Different test."
+                                                       #:value "foo"
+                                                       #:test string?)
+                                      ,tersubconfig)
+                                    #:alias 'ssc
+                                    #:config-dir "/tmp"))
+       (prisubconfig (configuration 'prisubconf
+                                    "A subconfiguration."
+                                    `(,(public-option 'verbose
+                                                      "Boolean test."
+                                                      #:value #f)
+                                      ,secsubconfig)
+                                    #:alias 'psc #:inherit #t))
+       (config (configuration
+                'test-config
+                "Test configuration."
+                `(,(public-option 'test
+                                  "Value test."
+                                  #:value "test"
+                                  #:test string?)
+                  ,(public-option 'target
+                                  "Boolean test."
+                                  #:value #f)
+                  ,(private-option 'priv
+                                   "Private Option."
+                                   #:value #f)
+                  ,prisubconfig)
+                #:help? #t
+                #:config-dir "/tmp" #:inherit #t)))
+  (test-equal "Merge values no subcommand"
+    ;; Our options have no augmentation through inheritance!
+    (configuration-options
+     (run-io
+      ((@@ (conf) merge-config-file-values) config '())))
+    (configuration-options config))
+  (test-assert "Merge values first subcommand: root inheritance"
+    ;; We expect root config to be merged into first subconfig
+    (match (configuration-options
+            (run-io
+             ((@@ (conf) merge-config-file-values)
+              config '((prisubconf psc)))))
+      ((('verbose . ($ <puboption> 'verbose #f))
+        ('help . ($ <puboption> 'help #f))
+        ('test . ($ <puboption> 'test "test"))
+        ('target  . ($ <puboption> 'target #f))
+        ('priv . ($ <prioption> 'priv #f)))
+       #t)
+      (_ #f)))
+  (test-equal "Merge values second subcommand: destroy inheritance"
+    ;; Our options have no augmentation through inheritance!
+    (configuration-options
+     (run-io
+      ((@@ (conf) merge-config-file-values)
+       config '((prisubconf psc) (secsubconf ssc)))))
+    (configuration-options secsubconfig))
+  (test-assert "Merge values third subcommand: secsubconfig inheritance"
+    ;; We expect root config to be merged into first subconfig
+    (match (configuration-options
+            (run-io
+             ((@@ (conf) merge-config-file-values)
+              config '((prisubconf psc) (secsubconf ssc) (tersubconf tsc)))))
+      ((('bar . ($ <puboption> 'bar 5))
+        ('verbose . ($ <openoption> 'verbose #t))
+        ('test . ($ <prioption> 'test "foo")))
+       #t)
+      (_ #f))))
+
 (test-end "config")
 
 ;;; config.scm ends here

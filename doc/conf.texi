@@ -50,6 +50,7 @@ This document describes Guile Config version @value{VERSION}.
 * Introduction::                The need for Guile Config.
 * Overview::                    The low-down on usage.
 * Configuration::               The configuration.
+* On Inheritance::              Inheritance fully explained.
 * Private Options::             Internal configuration options.
 * Public Options::              Commandline options.
 * Open Options::                Configuration file options.
@@ -187,6 +188,11 @@ usage and version messages.  We also declare the author, copyright and
 the license of the application for greater accuracy in the emitted
 messages.
 
+Setting the #:inherit option in the root-config ensures that all
+options, including the automatically generated help, usage and version
+options, will be inherited by the subcommand configurations; so there is
+no need to redeclare those!
+
 This is a moderately complex example to show off some advanced features
 of the library.
 
@@ -223,13 +229,7 @@ of the library.
             #:handler (compose (cut string-join <> file-name-separator-string
                                     'prefix)
                                (cut string-split <> #\ ))))
-        #:config-dir "/tmp/frobnigator"
-        #:help? #t
-        #:usage? #t
-        #:copyright '(2015 2016)
-        #:version? "0.1"
-        #:license 'agplv3+
-        #:author "Alex Sassmannshausen")
+        #:config-dir "/tmp/frobnigator")
       ;; This configuration contains no open-options as a result it requires
       ;; no configuration file.
       (configuration 'test
@@ -245,14 +245,7 @@ of the library.
             #:value 1
             #:test integer?
             #:handler string->number))
-        #:copyright '(2014)
-        #:alias 'tst
-        #:help? #t
-        #:usage? #t
-        #:copyright '(2015 2016)
-        #:version? "0.1"
-        #:license 'agplv3+
-        #:author "Alex Sassmannshausen")
+        #:alias 'tst)
       ;; A command-line option that specifies a file for frobnigator to
       ;; operate on.
       ;; By not specifying a value we make this option mandatory.  If the file
@@ -263,6 +256,7 @@ of the library.
         #:example "/tmp/frob-target"
         #:single-char #\t))
     #:config-dir "/tmp/frobnigator"
+    #:inherit #t
     #:help? #t
     #:usage? #t
     #:copyright '(2015 2016)
@@ -354,7 +348,8 @@ is outlined here:
 @deffn {Scheme Procedure} configuration name terse values @
        [#:config-dir #f] [#:long #f] [#:help? #f] [#:usage? #f] @
        [#:version? #f] [#:license #f] [#:copyright #f] [#:author #f] @
-       [#:version-test? string?] [#:parser simple-parser] [#:alias #f]
+       [#:version-test? string?] [#:parser simple-parser] [#:alias #f] @
+       [#:inherit #f]
 
 @code{configuration} allows you to create a new configuration or
 sub-configuration.  You should use this form when declaring your
@@ -431,6 +426,19 @@ write this configuration's configuration file.
 A symbol providing an alternative name for this configuration.  This can
 be useful for sub-commands, in order to provide shorter, alternative
 means of invocation.
+
+@item inherit
+A boolean indicating whether options defined as part of this
+configuration should be inherited downward by subcommand configurations.
+By default this is turned off, which means that a subconfiguration will
+simply use its own options.  When this is turned on, all options defined
+in this configuration, will also be available in subconfigurations
+(except for those options that specifically have inheritance switched
+off).  This allows you to define common options (such as ``help'' or
+``verbose'') at a base configuration.
+
+Options that have the same name as inherited options will override the
+inherited options.
 @end table
 
 A simple example configuration object with three options would be:
@@ -457,6 +465,60 @@ A simple example configuration object with three options would be:
 As the example contains an open option, which can be set via the
 configuration file, we must specify the @code{#:config-dir} keyword
 argument, to ensure the configuration file exists at run-time.
+
+@c *********************************************************************
+@node On Inheritance
+@chapter On Inheritance
+
+Inheritance can mean many things.  In our context, inheritance can be
+thought of as a means to achieve two things:
+
+@itemize
+@item
+Economy - there is no need to repeat common option declarations.
+
+@item
+Consistency - we can ensure we expose the same options for the same
+functionality, without having to manually ensure consistency.
+
+@end itemize
+
+Inheritance is controlled on two levels: at the configuration level, and
+at the option level.  Using these two mechanisms you should be able to
+control exactly what options should be exposed at what point in your
+program.
+
+Inheritance at the configuration level is normally switched off.  This
+means that subcommand configurations will not inherit any options from
+their direct parent.
+
+Switching it on in a configuration will result in its direct descendent
+inheriting the exact option definitions defined in this configuration.
+
+That descendent may in turn have inheritance switched off, which would
+result in it neither receiving any options from its parent nor in it
+passing on its options to its subconfigurations.
+
+As an example, a configuration may have inheritance switched on, and it
+may have two subcommand configurations.  The first has inheritance
+switched on, which results in it inheriting the configuration options
+from its parent, as well as displaying its own (which might, at least
+partially, override the parent options).  Its sibling, the second
+subcommand may have inheritance switched off, which would result in it
+only exposing its own options.
+
+Of course, the latter would also result in the standard ``help'',
+``usage'' and ``version'' options having to be redeclared in its
+configuration.
+
+Inheritance at the option level simply allows a specific configuration
+to block its children from inheriting specific options.  Thus, if you
+had a configuration that exposed one option, on top of the standard
+``help'', ``usage'' and ``version'' options, you might want to switch
+inheritance off for you additional option, but switch it on at the
+configuration level.  Subcommand configurations would then benefit from
+inheriting the standard options, without inheriting the, potentially
+inappropriate, additional option.
 
 @c *********************************************************************
 @node Private Options
