@@ -267,7 +267,8 @@
                                   #:test string?)
                   ,(public-option 'target
                                   "Boolean test."
-                                  #:value #f)
+                                  #:value #f
+                                  #:inherit #f)
                   ,(private-option 'priv
                                    "Private Option."
                                    #:value #f)
@@ -277,41 +278,38 @@
   ;; inheritance-merge demands at least one inheritance entry.
   ;; inheritance-merge simply merges what it finds in inheritance; it does not
   ;; care about inherit flags for its arguments!
-  (test-assert "Inherit from root config"
+  (test-assert "Inherit from root config, ignoring target"
     (match (configuration-options
             (run-io
              ((@@ (conf) inheritance-merge) prisubconfig
               `(,config))))
       ((('verbose . ($ <puboption> 'verbose #f))
-        ('help . ($ <puboption> 'help #f))
+        ('priv . ($ <prioption> 'priv #f))
         ('test . ($ <puboption> 'test "test"))
-        ('target  . ($ <puboption> 'target #f))
-        ('priv . ($ <prioption> 'priv #f)))
+        ('help . ($ <puboption> 'help #f)))
        #t)
       (_ #f)))
-  (test-assert "Inherit and override root, first"
+  (test-assert "Inherit and override root (- target), first"
     (match (configuration-options
             (run-io
              ((@@ (conf) inheritance-merge) secsubconfig
               `(,config ,prisubconfig))))
       ((('verbose . ($ <openoption> 'verbose #t))
-        ('help . ($ <puboption> 'help #f))
+        ('priv . ($ <prioption> 'priv #f))
         ('test . ($ <prioption> 'test "foo"))
-        ('target  . ($ <puboption> 'target #f))
-        ('priv . ($ <prioption> 'priv #f)))
+        ('help . ($ <puboption> 'help #f)))
        #t)
       (_ #f)))
-  (test-assert "Inherit, override and add root, first, second"
+  (test-assert "Inherit, override and add root (- target), first, second"
     (match (configuration-options
             (run-io
              ((@@ (conf) inheritance-merge) tersubconfig
               `(,config ,prisubconfig ,secsubconfig))))
       ((('bar . ($ <puboption> 'bar 5))
         ('verbose . ($ <openoption> 'verbose #t))
-        ('help . ($ <puboption> 'help #f))
+        ('priv . ($ <prioption> 'priv #f))
         ('test . ($ <prioption> 'test "foo"))
-        ('target  . ($ <puboption> 'target #f))
-        ('priv . ($ <prioption> 'priv #f)))
+        ('help . ($ <puboption> 'help #f)))
        #t)
       (_ #f))))
 
@@ -432,10 +430,10 @@
              ((@@ (conf) merge-config-file-values)
               config '((prisubconf psc)))))
       ((('verbose . ($ <puboption> 'verbose #f))
-        ('help . ($ <puboption> 'help #f))
-        ('test . ($ <puboption> 'test "test"))
+        ('priv . ($ <prioption> 'priv #f))
         ('target  . ($ <puboption> 'target #f))
-        ('priv . ($ <prioption> 'priv #f)))
+        ('test . ($ <puboption> 'test "test"))
+        ('help . ($ <puboption> 'help #f)))
        #t)
       (_ #f)))
   (test-equal "Merge values second subcommand: destroy inheritance"
@@ -452,10 +450,10 @@
              ((@@ (conf) merge-config-file-values)
               config '((prisubconf psc) (secsubconf ssc) (tersubconf tsc)))))
       ((('bar . ($ <puboption> 'bar 5))
-        ('verbose . ($ <openoption> 'verbose #t))
-        ('test . ($ <prioption> 'test "foo")))
+        ('test . ($ <prioption> 'test "foo"))
+        ('verbose . ($ <openoption> 'verbose #t)))
        #t)
-      (_ #f))))
+      (e #f))))
 
 (test-end "config")
 

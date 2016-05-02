@@ -532,7 +532,7 @@ values.  Private options could be used to store any other internal
 program configuration values, such as data directories etc.
 
 @deffn {Scheme Procedure} private-option name terse [#:long #f] @
-       [#:value '<unset>] [#:test boolean?]
+       [#:value '<unset>] [#:test boolean?] [#:inherit #t]
 
 @code{private-option} is a convenience procedure to create private
 options.  Private options should normally always have a value, and the
@@ -559,6 +559,12 @@ at installation time.
 @item test
 A predicate to evaluate @code{value}.  We will throw an error if
 @code{value} does not satisfy this predicate.
+
+@item inherit
+A boolean indicating whether this option should be passed down to the
+containing configuration's subcommand configurations.  By default this
+is set to #t, which means that if the containing configuration's inherit
+setting is set to #t, this option will be passed down.
 @end table
 @end deffn
 
@@ -579,7 +585,8 @@ addition of the 'version-number private-option).
 
 @deffn {Scheme Procedure} public-option name terse [#:long #f] @
        [#:value '<unset>] [#:single-char #f] [#:test boolean?] @
-       [#:handler identity] [#:example ``VALUE''] [#:optional? #f]
+       [#:handler identity] [#:example ``VALUE''] [#:optional? #f] @
+       [#:inherit #t]
 
 @code{public-option} is a convenience procedure to create public
 options.  They are normally defined anonymously as part of
@@ -643,6 +650,12 @@ to #t will require you to provide an appropriate @code{handler}, taking
 either a boolean or a string as input.  You may also have to provide a
 @code{test} predicate that expects inputs of potentially different
 types.
+
+@item inherit
+A boolean indicating whether this option should be passed down to the
+containing configuration's subcommand configurations.  By default this
+is set to #t, which means that if the containing configuration's inherit
+setting is set to #t, this option will be passed down.
 @end table
 @end deffn
 
@@ -667,7 +680,8 @@ derived from the command-line.
 
 @deffn {Scheme Procedure} open-option name terse [#:long #f] @
        [#:value '<unset>] [#:single-char #f] [#:test boolean?] @
-       [#:handler identity] [#:example ``VALUE''] [#:optional? #f]
+       [#:handler identity] [#:example ``VALUE''] [#:optional? #f] @
+       [#:inherit #t]
 
 @code{open-option} is a convenience procedure to create open options.
 They are normally defined anonymously as part of configurations, but can
@@ -737,6 +751,12 @@ to #t will require you to provide an appropriate @code{handler}, taking
 either a boolean or a string as input.  You may also have to provide a
 @code{test} predicate that expects inputs of potentially different
 types.
+
+@item inherit
+A boolean indicating whether this option should be passed down to the
+containing configuration's subcommand configurations.  By default this
+is set to #t, which means that if the containing configuration's inherit
+setting is set to #t, this option will be passed down.
 @end table
 @end deffn
 

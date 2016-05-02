@@ -480,14 +480,26 @@ We only call this function if CONFIG wants its ancestral inheritage!"
 
   (define* (merge-inheritance config merged-inheritance #:optional final)
     (define (merge name option merged)
-      ;; Also deal with *-option inherit flag here!
-      ;; That's where final comes in!
-      (if (assv name merged)
-          (map (match-lambda
-                 (((? (cut eqv? name <>)) . old-option) (cons name option))
-                 (not-it not-it))
-               merged)
-          (cons `(,name . ,option) merged)))
+      (cond ((assv name merged)
+             ;; Exists in merged config -> must update config
+             (fold (lambda (opt newly-merged)
+                     (match opt
+                       (((? (cut eqv? name <>)) . old-option)
+                        (if (or final (option-inherit option))
+                            (cons (cons name option) newly-merged)
+                            ;; Option inherit is off and this is not final
+                            ;; -> drop option.
+                            newly-merged))
+                       ;; Not our candidate, fold onwards.
+                       (_ (cons opt newly-merged))))
+                   '()
+                   merged))
+            ((or final (option-inherit option))
+             ;; Does not exist -> we need to add it
+             (cons `(,name . ,option) merged))
+            (else
+             ;; We don't want this option in merged.
+             merged)))
 
     (set-configuration-options
      merged-inheritance
@@ -504,8 +516,8 @@ We only call this function if CONFIG wants its ancestral inheritage!"
   (mlet* %io-monad
       ((read-inheritance (mapm %io-monad read-merge inheritance))
        (merged-ancestors -> (fold merge-inheritance
-                                  (car read-inheritance)
-                                  (cdr read-inheritance)))
+                                  (empty-configuration)
+                                  read-inheritance))
        (read-config      (read-merge config)))
     ;; Merge inheritance with our final configuration, ensuring it's final!
     (return (merge-inheritance read-config merged-ancestors #t))))

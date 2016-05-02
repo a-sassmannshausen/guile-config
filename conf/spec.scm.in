@@ -84,6 +84,8 @@
             open-option
 
             option?
+            option-inherit
+            option-name
 
             <configuration>
             mecha-configuration
@@ -108,8 +110,7 @@
             set-configuration-inherit
 
             configuration-file
-            configuration-write
-            configuration-read
+            empty-configuration
 
             complex-version
             version
@@ -277,26 +278,30 @@
 ;;; overridable by the end user, neither in configuration files, nor
 ;;; at the command line.
 (define-immutable-record-type <prioption>
-  (mecha-prioption name value test terse long)
+  (mecha-prioption name value test terse long inherit)
   private-option?
   (name prioption-name set-prioption-name)
   (value prioption-value set-prioption-value)
   (test prioption-test set-prioption-test)
   (terse prioption-terse set-prioption-terse)
-  (long prioption-long set-prioption-long))
+  (long prioption-long set-prioption-long)
+  (inherit prioption-inherit set-prioption-inherit))
 
 (define* (private-option name terse #:key long (value '<unset>)
-                         (test boolean?))
+                         (test boolean?) (inherit #t))
   "Return a Private Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
- - TEST: the predicate to check this VALUE against."
+ - TEST: the predicate to check this VALUE against.
+ - INHERIT: Should this value be inherited by inheriting subcommand
+configurations (default #t)."
   (mecha-prioption (check-name name)
                    (check-value value)
                    (check-test test)
                    (check-terse terse)
-                   (check-long long)))
+                   (check-long long)
+                   (check-inherit inherit)))
 
 ;;;;; Public Options
 ;;;
@@ -304,7 +309,7 @@ TERSE should be a < 40 char decsription.
 ;;; which can be specified on the command line.
 (define-immutable-record-type <puboption>
   (mecha-puboption name value test handler single-char terse long example
-                   optional)
+                   optional inherit)
   public-option?
   (name puboption-name set-puboption-name)
   (value puboption-value set-puboption-value)
@@ -314,11 +319,12 @@ TERSE should be a < 40 char decsription.
   (terse puboption-terse set-puboption-terse)
   (long puboption-long set-puboption-long)
   (example puboption-example set-puboption-example)
-  (optional puboption-optional set-puboption-optional))
+  (optional puboption-optional set-puboption-optional)
+  (inherit puboption-inherit set-puboption-inherit))
 
 (define* (public-option name terse #:key long (value '<unset>) single-char
                         (test boolean?) (handler identity) (example "VALUE")
-                        optional?)
+                        optional? (inherit #t))
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
@@ -331,7 +337,9 @@ from the commandline.  This should be a transformer from
 string->value-for-test.
  - EXAMPLE: an example cli value for help purposes.
  - OPTIONAL?: a boolean to inform us that the cli argument can, but doesn't
-have to take an argument."
+have to take an argument.
+ - INHERIT: Should this value be inherited by inheriting subcommand
+configurations (default #t)."
   (mecha-puboption (check-name name)
                    (check-value value)
                    (check-test test)
@@ -340,7 +348,8 @@ have to take an argument."
                    (check-terse terse)
                    (check-long long)
                    (check-example example)
-                   (check-optional optional?)))
+                   (check-optional optional?)
+                   (check-inherit inherit)))
 
 ;;;;; Open Options
 ;;;
@@ -349,7 +358,7 @@ have to take an argument."
 ;;; the CLI.
 (define-immutable-record-type <openoption>
   (mecha-openoption name value test handler single-char terse long example
-                    optional)
+                    optional inherit)
   open-option?
   (name openoption-name set-openoption-name)
   (value openoption-value set-openoption-value)
@@ -359,11 +368,12 @@ have to take an argument."
   (terse openoption-terse set-openoption-terse)
   (long openoption-long set-openoption-long)
   (example openoption-example set-openoption-example)
-  (optional openoption-optional set-openoption-optional))
+  (optional openoption-optional set-openoption-optional)
+  (inherit openoption-inherit set-openoption-inherit))
 
 (define* (open-option name terse #:key single-char (value '<unset>)
                       (test boolean?) (handler identity) long
-                      (example "VALUE") optional?)
+                      (example "VALUE") optional? (inherit #t))
   "Return a Public Option.  NAME should be a symbol naming the option and
 TERSE should be a < 40 char decsription.
  - LONG: space for a longer description.
@@ -377,7 +387,9 @@ from the commandline.  This should be a transformer from
 string->value-for-test.
  - EXAMPLE: an example cli value for help purposes.
  - OPTIONAL?: a boolean to inform us that the cli argument can, but doesn't
-have to take an argument."
+have to take an argument.
+ - INHERIT: Should this value be inherited by inheriting subcommand
+configurations (default #t)."
   (mecha-openoption (check-name name)
                     (check-value value)
                     (check-test test)
@@ -386,15 +398,28 @@ have to take an argument."
                     (check-terse terse)
                     (check-long long)
                     (check-example example)
-                    (check-optional optional?)))
+                    (check-optional optional?)
+                    (check-inherit inherit)))
 
-;;;;; Generic Option Predicate
+;;;;; Generic Option Procedures
 
 (define (option? obj)
   "Return #t if OBJ is an option; #f otherwise."
   (match obj
     ((or (? public-option?) (? private-option?) (? open-option?)) #t)
     (_ #f)))
+
+(define (option-inherit option)
+  (match option
+    ((? private-option?) (prioption-inherit option))
+    ((? public-option?) (puboption-inherit option))
+    ((? open-option?) (openoption-inherit option))))
+
+(define (option-name option)
+  (match option
+    ((? private-option?) (prioption-name option))
+    ((? public-option?) (puboption-name option))
+    ((? open-option?) (openoption-name option))))
 
 
 ;;;; Configuration
@@ -440,6 +465,9 @@ we don't have a configuration dir."
                      file-name-separator-string
                      (symbol->string (configuration-name configuration)))
       #f))
+
+(define (empty-configuration)
+  (mecha-configuration '%empty-config #f '() '() "" "" #f #f #f))
 
 
 ;;;; Common Option Convenience
@@ -623,5 +651,10 @@ help output."
   (match optional
     ((? boolean?) optional)
     (_ (throw 'config-spec (_ "OPTIONAL should be a boolean.")))))
+
+(define (check-inherit inherit)
+  (match inherit
+    ((? boolean?) inherit)
+    (_ (throw 'config-spec (_ "INHERIT should be a boolean.")))))
 
 ;;; config-spec.scm ends here.
