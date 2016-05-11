@@ -221,12 +221,14 @@ There is NO WARRANTY, to the extent permitted by law.")))
 ;;; - add logic to configuration-spec compiler, to check that keys in each
 ;;;   configuration, including from `argument spec' are unique (meaningful
 ;;;   error if not).
-(define* (configuration name terse values #:key config-dir
+(define* (configuration name terse values #:key (free-param '()) config-dir
            long help? usage? version? license copyright author
            (version-test? string?) (parser simple-parser) alias inherit)
   "Return a configuration.  NAME should be a symbol naming the configuration.
 TERSE is a < 40 char description; VALUES is a list of config-options.  The
 optional arguments:
+ - FREE-PARAMS: a specification describing the type of free or positional
+parameters which might be passed to this configuration.
  - CONFIG-DIR: the directory in which a configuration file should be
 generated.
  - LONG: a longer documentation string (mainly used in config files).
@@ -331,6 +333,10 @@ inherit is set to #t."
                                         confs)))
                  (_ (throw 'config-spec
                            (_ "Invalid option in configuration.")))))
+           ,(match free-params
+              ((? list?) free-params)
+              (_ (throw 'config-spec
+                        (_ "FREE-PARAMS should be a list."))))
            ,(match terse
               ((and (? string?) (? (compose (cut <= <> 40) string-length)))
                terse)
@@ -503,6 +509,7 @@ We only call this function if CONFIG wants its ancestral inheritage!"
                                (configuration-dir config)
                                options
                                (configuration-configs config)
+                               (configuration-free-params config)
                                (configuration-terse config)
                                (configuration-long config)
                                (configuration-parser config)
@@ -614,7 +621,7 @@ the subcommands contained in CONFIGS."
                     ((confs longest longest-alias)
                      (match conf
                        ((name . ($ <configuration> (= symbol->string n) _ _ _
-                                                   t _ _ a))
+                                                   _ t _ _ a))
                         (if ((compose (cut > <> longest) string-length) n)
                             (conf-spec n (if (symbol? a)
                                              (symbol->string a)

@@ -172,7 +172,7 @@ CLI-PARAMS."
     (match free-params
       (((? string? candidate) . rest)
        (match (assq (string->symbol candidate) configs)
-         ((k . ($ <configuration> name _ opts configs _ _ _ alias))
+         ((k . ($ <configuration> name _ opts configs _ _ _ _ alias))
           (establish rest `((,name ,alias) . ,subcommands)
                      (expand-configs configs)))
          ;; Could be #f or an <option>

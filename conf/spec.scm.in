@@ -102,6 +102,8 @@
             set-configuration-options
             configuration-configs
             set-configuration-configs
+            configuration-free-params
+            set-configuration-free-params
             configuration-terse
             set-configuration-terse
             configuration-long
@@ -442,13 +444,14 @@ configurations (default #t)."
 ;;;; Configuration
 
 (define-immutable-record-type <configuration>
-  (mecha-configuration name dir options configs terse long parser alias
-                       inherit)
+  (mecha-configuration name dir options configs free-params terse long parser
+                       alias inherit)
   configuration?
   (name    configuration-name    set-configuration-name)
   (dir     configuration-dir     set-configuration-dir)
   (options configuration-options set-configuration-options)
   (configs configuration-configs set-configuration-configs)
+  (free-params configuration-free-params set-configuration-free-params)
   (terse   configuration-terse   set-configuration-terse)
   (long    configuration-long    set-configuration-long)
   (parser  configuration-parser  set-configuration-parser)
@@ -457,7 +460,7 @@ configurations (default #t)."
 
 (define (configuration-print configuration)
   (match configuration
-    (($ <configuration> name dir opts configs terse long)
+    (($ <configuration> name dir opts configs free-params terse long)
      (format #t "~a~%~a~%" name terse)
      (when long (format #t "~%~a~%" long))
      (when dir (format #t "~%Configuration Directory: ~a~%" dir))
@@ -484,7 +487,7 @@ we don't have a configuration dir."
       #f))
 
 (define (empty-configuration)
-  (mecha-configuration '%empty-config #f '() '() "" "" #f #f #f))
+  (mecha-configuration '%empty-config #f '() '() '() "" "" #f #f #f))
 
 
 ;;;; Common Option Convenience

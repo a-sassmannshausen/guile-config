@@ -83,6 +83,7 @@
     (($ <configuration> (? symbol? n) (? string? d)
                         ((name . (? option? opts)) ...)
                         ((name . (? configuration? confs)) ...)
+                        ((name . (? free-param? fps)) ...)
                         (? string? t)
                         (? string? l)
                         parser) #t)

@@ -88,7 +88,7 @@
    ;; Writer
    (lambda (configuration port)
      (match configuration
-       (($ <configuration> name _ opts _ terse long _)
+       (($ <configuration> name _ opts _ _ terse long _)
         (format port ";;;; ~a - ~a~%" name terse)
         (when long
           (for-each (lambda (line)
