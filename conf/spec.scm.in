@@ -296,7 +296,7 @@
 (define* (private-option name terse #:key long (value '<unset>)
                          (test boolean?) (inherit #t))
   "Return a Private Option.  NAME should be a symbol naming the option and
-TERSE should be a < 40 char decsription.
+TERSE should be a < 40 char description.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
  - TEST: the predicate to check this VALUE against.
@@ -332,7 +332,7 @@ configurations (default #t)."
                         (test boolean?) (handler identity) (example "VALUE")
                         optional? (inherit #t))
   "Return a Public Option.  NAME should be a symbol naming the option and
-TERSE should be a < 40 char decsription.
+TERSE should be a < 40 char description.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
  - SINGLE-CHAR: if set to a character, the single-char for the getopt-long
@@ -381,7 +381,7 @@ configurations (default #t)."
                       (test boolean?) (handler identity) long
                       (example "VALUE") optional? (inherit #t))
   "Return a Public Option.  NAME should be a symbol naming the option and
-TERSE should be a < 40 char decsription.
+TERSE should be a < 40 char description.
  - LONG: space for a longer description.
  - VALUE: the value assigned to this private option.
  - SINGLE-CHAR: if set to a character, the single-char for the getopt-long
