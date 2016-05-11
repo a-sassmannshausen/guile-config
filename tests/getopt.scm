@@ -425,4 +425,7 @@
 
 (test-end "getopt")
 
+
+(exit (= (test-runner-fail-count (test-runner-current)) 0))
+
 ;;; getopt.scm ends here

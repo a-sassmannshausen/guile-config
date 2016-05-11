@@ -208,5 +208,6 @@
 (test-end "monads")
 
 
-;;(exit (= (test-runner-fail-count (test-runner-current)) 0))
+(exit (= (test-runner-fail-count (test-runner-current)) 0))
 
+;;; monads.scm ends here

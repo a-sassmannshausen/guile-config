@@ -457,4 +457,6 @@
 
 (test-end "config")
 
+(exit (= (test-runner-fail-count (test-runner-current)) 0))
+
 ;;; config.scm ends here

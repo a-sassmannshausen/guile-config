@@ -164,4 +164,7 @@ This is used to test that we raise errors correctly."
 
 (test-end "spec")
 
+
+(exit (= (test-runner-fail-count (test-runner-current)) 0))
+
 ;;; spec.scm ends here
