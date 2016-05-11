@@ -168,21 +168,23 @@
 ;;;;; Tests for: ensure-config-files
 
 (test-assert "Create config-file"
-  (begin
+  (let ((file (string-join '("/tmp" "test-config")
+                           file-name-separator-string)))
+    (when (file-exists? file)
+      (delete-file file))
     (run-io ((@@ (conf) ensure-config-files)
-             (configuration 'test-config
-               "Test configuration."
-               (list (open-option 'config
-                       "Open, config file needed."
-                       #:value "test"
-                       #:test string?)
-                     (private-option 'priv
-                       "Private Option."
-                       #:value #f))
-               #:help? #t
-               #:config-dir "/tmp")))
-    (file-exists? (string-join '("/tmp" "test-config")
-                               file-name-separator-string))))
+             (configuration
+              'test-config
+              "Test configuration."
+              `(,(open-option 'config
+                              "Open, config file needed."
+                              #:value "test"
+                              #:test string?)
+                ,(private-option 'priv
+                                 "Private Option."
+                                 #:value #f))
+              #:config-dir "/tmp")))
+    (file-exists? file)))
 
 ;;;;; Tests for: option-ref
 (let* ((config (configuration

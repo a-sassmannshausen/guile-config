@@ -557,16 +557,16 @@ when they will be dropped for inheritance purposes in any case."
 that do not exist.
 Return values is unspecified in the io-monad."
   (define (ensure config)
-    (if (or (not (configuration-file config))
-            (file-exists? (configuration-file config))
-            (any open-option?
-                 (configuration-options configuration)))
-        (with-monad %io-monad (return '()))
-        (mlet* %io-monad
-            ((ignore  (iomkdir-p (configuration-dir config)))
-             (old-out (set-io-output-file (configuration-file config)))
-             (ignore  (configuration-write config)))
-          (io-close-output-port old-out))))
+    (with-monad %io-monad
+      (munless (or (not (configuration-file config))
+                   (any open-option?
+                        (configuration-options configuration))
+                   (file-exists? (configuration-file config)))
+        (iomkdir-p (configuration-dir config))
+        (mlet %io-monad
+            ((old-out (set-io-output-file (configuration-file config))))
+          (configuration-write config)
+          (io-close-output-port old-out)))))
   (define (recurse values)
     (match values
       (() (with-monad %io-monad (return '())))
