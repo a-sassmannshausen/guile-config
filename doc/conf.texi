@@ -54,6 +54,7 @@ This document describes Guile Config version @value{VERSION}.
 * Private Options::             Internal configuration options.
 * Public Options::              Commandline options.
 * Open Options::                Configuration file options.
+* Free Parameters::             Positional or free parameters.
 * Initializers::                Parsing command-line and config-file input.
 
 * Contributing::                Contributing to the Guile Config project.
@@ -346,10 +347,10 @@ instantiated using the @code{configuration} convenience procedure, which
 is outlined here:
 
 @deffn {Scheme Procedure} configuration name terse values @
-       [#:config-dir #f] [#:long #f] [#:help? #f] [#:usage? #f] @
-       [#:version? #f] [#:license #f] [#:copyright #f] [#:author #f] @
-       [#:version-test? string?] [#:parser simple-parser] [#:alias #f] @
-       [#:inherit #f]
+       [#:free-params '()] [#:config-dir #f] [#:long #f] [#:help? #f] @
+       [#:usage? #f] [#:version? #f] [#:license #f] [#:copyright #f] @
+       [#:author #f] [#:version-test? string?] [#:parser simple-parser] @
+       [#:alias #f] [#:inherit #f]
 
 @code{configuration} allows you to create a new configuration or
 sub-configuration.  You should use this form when declaring your
@@ -360,6 +361,12 @@ open-options, and @code{alias} is only necessary if you want to provide
 a short form of the sub-command defined by this configuration.  Finally,
 @code{license}, @code{copyright} and @code{author} can be omitted, but
 doing so will result in a very limited @emph{version} string.
+
+@code{values} will be a list of subconfigurations and options (see
+below).  In addition, the @code{free-params} optional argument allows
+you to declare additional free, or positional, arguments to your
+program.  This argument takes the form of a list of @code{<free-param>}
+objects (see below).
 
 @table @code
 @item name
@@ -372,6 +379,10 @@ this configuration.
 @item values
 A list containing further configurations (for sub-commands), private-,
 public- and open-options.
+
+@item free-params
+A list containing @code{<free-param>} records, defining the kind of free
+or positional parameters you expect your program to have.
 
 @item config-dir
 A string naming the directory in which a configuration file would be
@@ -545,10 +556,10 @@ A symbol specifying the name of the private option.
 
 @item terse
 A string of less than 40 characters providing a brief explanation of
-this configuration.
+this private option.
 
 @item long
-A string providing a detailed explanation of this configuration.
+A string providing a detailed explanation of this private option.
 
 @item value
 The value of this private option.  This can be an arbitrary values, but
@@ -599,10 +610,10 @@ A symbol specifying the name of the public option.
 
 @item terse
 A string of less than 40 characters providing a brief explanation of
-this configuration.
+this public option.
 
 @item long
-A string providing a detailed explanation of this configuration.
+A string providing a detailed explanation of this public option.
 
 @item value
 The value of this public option.  This can be an arbitrary values, but
@@ -694,10 +705,10 @@ A symbol specifying the name of the open option.
 
 @item terse
 A string of less than 40 characters providing a brief explanation of
-this configuration.
+this open option.
 
 @item long
-A string providing a detailed explanation of this configuration.
+A string providing a detailed explanation of this open option.
 
 @item value
 The value of this open option.  This can be an arbitrary values, but it
@@ -759,6 +770,82 @@ is set to #t, which means that if the containing configuration's inherit
 setting is set to #t, this option will be passed down.
 @end table
 @end deffn
+
+@c *********************************************************************
+@node Free Parameters
+@chapter Free Parameters
+
+Free parameters are configuration values that slot into the
+@code{free-params} field of the @code{configuration} procedure.  They
+are additional ``options'' that allow you to declare what kind of
+positional arguments your application accepts.
+
+As we are talking positional arguments here, the ordering in the list of
+@code{free-params} is important.  Please also bear in mind that, for the
+same reason, you cannot have mandatory positional arguments after your
+first optional positional argument.
+
+@deffn {Scheme Procedure} free-param name terse [#:long #f] @
+       [#:value '<unset>] [#:test boolean?] [#:handler identity] @
+       [#:example ``Value''] [#:optional #f] [#:inherit #f]
+
+@code{free-param} is a convenience procedure to create free or
+positional arguments.  Free parameters normally are mandatory, and do
+not need to be given a default value, though it may be useful to do so
+if you declare one optional.
+
+@table @code
+@item name
+A symbol specifying the name of the free parameter.
+
+@item terse
+A string of less than 40 characters providing a brief explanation of
+this free parameter.
+
+@item long
+A string providing a detailed explanation of this free parameter.
+
+@item value
+The value of this free parameter.  This can be an arbitrary value, but
+it should pass the predicate defined with @code{test}.  Value is
+normally either set by the programmer, or by this programs build system
+at installation time.
+
+@item test
+A predicate to evaluate @code{value}.  We will throw an error if
+@code{value} does not satisfy this predicate.
+
+@item handler
+A procedure of one argument that will be applied to the value supplied
+by the end-user on the command-line to transform that value (which will
+always be a string) into a different type that can pass @code{test}.
+
+This interplay between @code{test} and @code{handler} allows us to
+perform input validation entirely at the configuration parsing stage,
+thus freeing the programmer from having to do this in the body of the
+program itself.
+
+@item example
+A string providing an example value which will be displayed to the
+end-user when they request @code{--help}, or @code{--usage}.  If
+@code{example} is not provided, we will use the name of the free
+parameter instead.
+
+@item optional?
+If set to #t, this free paramater can be omitted by the end user.  In
+this case we will either use the default value, or return #f when it is
+queried.
+
+@item inherit
+A boolean indicating whether this option should be passed down to the
+containing configuration's subcommand configurations.  By default this
+is set to #t, which means that if the containing configuration's inherit
+setting is set to #t, this option will be passed down.
+@end table
+@end deffn
+
+Normally private options are not named; instead they are simply defined
+immediately within the configuration in which it is needed.
 
 @c *********************************************************************
 @node Initializers

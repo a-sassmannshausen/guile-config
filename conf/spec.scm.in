@@ -434,7 +434,7 @@ configurations (default #t)."
   (inherit free-param-inherit set-free-param-inherit))
 
 (define* (free-param name terse #:key (value '<unset>) (test string?)
-                     (handler identity) long (example "VALUE") optional
+                     (handler identity) long (example "") optional
                      inherit)
   "Return a Free Param.  NAME should be a symbol naming the option and TERSE
 should be a < 40 char description.

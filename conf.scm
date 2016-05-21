@@ -243,7 +243,8 @@ so and emit it to PORT."
                  (sort-opts (filter-opts opts)
                             (+ (string-length usage-string)
                                (string-length full-cmd-name)
-                               1))))
+                               1)
+                            (configuration-free-params config))))
        ;; Detailed Help
        (format port "~%~a~%~a~%" options-string
                (sort-detailed-opts (filter-opts opts))))
@@ -752,7 +753,7 @@ the subcommands contained in CONFIGS."
             string-ci<=?)))
    "\n"))
 
-(define (sort-opts opts indent)
+(define (sort-opts opts indent free-params)
   "Return a formatted string of OPTS, INDENTED up to level INDENT.
 This formatting is intended for the brief summary of our command."
   (define (whitespace)
@@ -761,6 +762,24 @@ This formatting is intended for the brief summary of our command."
       (if (> togo 0)
           (moar (1- togo) (string-append " " white))
           white)))
+  (define (free-params-string)
+    (match (fold (lambda (fp result)
+                   (match result
+                     ((str count)
+                      `(,(string-append
+                          str (if (free-param-optional fp) " [" "")
+                          (if (string-null? (free-param-example fp))
+                              ((compose string-upcase symbol->string
+                                        free-param-name) fp)
+                              (free-param-example fp)))
+                        ,(if (free-param-optional fp) (1+ count) count)))))
+                 '("" 0) free-params)
+      ((str count)
+       (let lp ((count  count)
+                (string str))
+         (if (zero? count)
+             string
+             (lp (1- count) (string-append string "]")))))))
   (define (boolproc? proc) (eq? 'boolean? (procedure-name proc)))
   (string-join
    (filter (cut (negate string=?) "" <>)
@@ -769,7 +788,8 @@ This formatting is intended for the brief summary of our command."
                 ((short-bools long-bools short-rest long-rest)
                  (cons (match (apply string (sort short-bools char-ci<=?))
                          ((? (compose (cut > <> 0) string-length) sbs)
-                          (string-append "[-" sbs "]"))
+                          (string-append "[-" sbs "] "
+                                         (free-params-string)))
                          (_ ""))
                        (map (cut string-join <>
                                  (string-append "\n" (whitespace)))
