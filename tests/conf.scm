@@ -187,6 +187,61 @@
               #:config-dir "/tmp")))
     (file-exists? file)))
 
+;;;;; Tests for: parse-free-params
+
+(let ((fp-declaration (list
+                       (free-param
+                        'csv-strings
+                        "A test free-param expecting csv-strings."
+                        #:handler (cut string-split <> #\,)
+                        #:test (match-lambda (((? string?) ...) #t)
+                                             (_ #f)))
+                       (free-param
+                        'number
+                        "A number free-param."
+                        #:optional #t
+                        #:handler string->number
+                        #:test number?)
+                       (free-param
+                        'symbol
+                        "A symbol free-param."
+                        #:optional #t
+                        #:handler string->symbol
+                        #:test symbol?))))
+  (test-assert "Bail on unknown free param."
+    (catch 'option-ref-unknown-fp
+      (lambda ()
+        ((@@ (conf) parse-free-params) 'digit '("test" "5" "symbol")
+         fp-declaration))
+      (lambda args #t)))
+  (test-assert "Bail on extra free params."
+    (catch 'option-ref-spare-fps
+      (lambda ()
+        ((@@ (conf) parse-free-params) 'csv-strings
+         '("test" "5" "symbol" "nine") fp-declaration))
+      (lambda args #t)))
+  (test-assert "Bail on missing mandatory free params."
+    (catch 'option-ref-missing-fps
+      (lambda ()
+        ((@@ (conf) parse-free-params) 'csv-strings '() fp-declaration))
+      (lambda args #t)))
+  (test-assert "Return #f on missing optional arg."
+    (not ((@@ (conf) parse-free-params) 'number '("test") fp-declaration)))
+  (test-assert "Return appropriate values for free-params."
+    (fold (lambda (test result)
+            (if result
+                (match test
+                  ((key . out)
+                   (equal?
+                    ((@@ (conf) parse-free-params) key
+                     '("test,hello,world" "5" "symbol") fp-declaration)
+                    out)))
+                #f))
+          #t
+          '((csv-strings . ("test" "hello" "world"))
+            (number . 5)
+            (symbol . symbol)))))
+
 ;;;;; Tests for: option-ref
 (let* ((config (configuration
                 'test-config
@@ -209,6 +264,26 @@
                                                      #:value #f))
                                      #:alias 'sc))
                 #:help? #t
+                #:free-params
+                (list
+                 (free-param
+                  'csv-strings
+                  "A test free-param expecting csv-strings."
+                  #:handler (cut string-split <> #\,)
+                  #:test (match-lambda (((? string?) ...) #t)
+                                       (_ #f)))
+                 (free-param
+                  'number
+                  "A number free-param."
+                  #:optional #t
+                  #:handler string->number
+                  #:test number?)
+                 (free-param
+                  'symbol
+                  "A symbol free-param."
+                  #:optional #t
+                  #:handler string->symbol
+                  #:test symbol?))
                 #:config-dir "/tmp"))
        (getopt (cut getopt-config <> config)))
   (test-equal "Simple param"
@@ -229,6 +304,29 @@
   (test-equal "Subconf aliased empty positional param"
     (option-ref (getopt '("script" "sc" "--verbose")) '())
     '())
+  (test-assert "Return appropriate values for free-params from option-ref."
+    (fold (lambda (test result)
+            (if result
+                (match test
+                  ((key . out)
+                   (equal?
+                    (option-ref
+                     (getopt '("script" "test,hello,world" "5" "symbol"))
+                     `(,key))
+                    out)))
+                #f))
+          #t
+          '((csv-strings . ("test" "hello" "world"))
+            (number . 5)
+            (symbol . symbol))))
+  (test-assert "Correct behaviour in inheritance context"
+    (catch 'option-ref-spare-fps
+      (lambda ()
+        (option-ref (getopt '("script" "subconf" "free-param" "--verbose"))
+                    '(test))
+        ((@@ (conf) parse-free-params) 'csv-strings
+         '("test" "5" "symbol" "nine") fp-declaration))
+      (lambda args #t)))
   ;; ("script" "--test" "hello" "--verbose")  ; Bails out OK (no such opt)
   ;; ("script" "subconf" "blah" "--target")   ; Bails out OK (no such opt)
   )

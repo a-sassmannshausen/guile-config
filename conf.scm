@@ -66,8 +66,13 @@
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
-  #:re-export  (private-option public-option open-option configuration-parser
-                               configuration-print getopt-print)
+  #:re-export  (private-option
+                public-option
+                open-option
+                free-param
+                configuration-parser
+                configuration-print
+                getopt-print)
   #:export     (
                 getopt-config
                 getopt-config-auto
@@ -134,13 +139,79 @@ was passed, and if it was, emit the appropriate messages before exiting."
   (run-io (getmio-config-auto args config) input-port output-port error-port))
 
 (define* (option-ref getopt key #:optional default)
-  "Return the value for KEY in CONFIGURATION, or DEFAULT if it cannot be
-found."
-  (if (null? key)
-      (getopt-free-params getopt)
-      (match (assq key (configuration-options (getopt-configuration getopt)))
-        (#f default)
-        ((name . option) (option-value option)))))
+  "Return the value for KEY in GETOPT, or DEFAULT if it cannot be found. KEY
+should be either:
+- a symbol, to retrieve the respective option in the GETOPT,
+- a list of exactly one symbol, to retrieve the respective free parameter from
+the list of free parameters provided on the command line.
+- '(), to retrieve all free parameters, without additional processing."
+  (match key
+    (() (getopt-free-params getopt))
+    ((free-key)
+     (match (parse-free-params free-key (getopt-free-params getopt)
+                               (configuration-free-params
+                                (getopt-configuration getopt)))
+       (#f default)
+       (value value)))
+    (_
+     (match (assq key (configuration-options (getopt-configuration getopt)))
+       (#f default)
+       ((name . option) (option-value option))))))
+
+;; FIXME: The current implmentation only parses free-params for validity when
+;; option-ref '(symbol is invoked.  Strictly speaking this should happen when
+;; we create the <getopt> object, so we catch invalid free-params even when
+;; option-ref for free-params is never invoked.
+;;
+;; This would be fixed by parsing free-params in `derive/merge…', just as
+;; options are, and then merely doing an assq for free-params in option-ref.
+;;
+;; Implement in later version?
+(define (parse-free-params key free-params config-fps)
+  "Return the processed value of the free paramater in FREE-PARAMS, at the
+position identified by KEY in the free parameter declaration CONFIG-FPS."
+    ;; Free Params can be optional, but what does that mean?
+    ;; - As Free Params are positional, the free params that are missing will
+    ;;   always be missing "at the end".
+    ;; - It does not make sense for any free param after the first optional
+    ;;   free-param to be mandatory: by definition, if that optional
+    ;;   free-param where omitted (by not being present on the command-line),
+    ;;   then the following mandatory argument would be missing on the
+    ;;   command-line too.
+    ;; - Hence help output for free-params should be something like:
+    ;; - Usage: command mandatory-fp [1st-opt-fp [2nd-opt-fp [3rd-opt-fp]]]
+  (if (> (length free-params) (length config-fps))
+      ;; We have more free-params than were declared in the configuration.
+      ;; We strictly validate so throw an error.
+      (throw 'option-ref-spare-fps
+             "Too many free paramaters passed to program!" free-params)
+      (let lp ((specs config-fps)
+               (free-params free-params))
+        (match (cons specs free-params)
+          ;; We're at the end of the lists, which means KEY does not exist in
+          ;; CONFIG-FPS.  We must throw an error.
+          ((() . ())
+           (throw 'option-ref-unknown-fp "Unknown free parameter:" key))
+          ;; Current free-param (and all further) is optional, and we have no
+          ;; further free-params.  So we return #f.
+          ((((? (cut free-param-optional <>)) . rest) . ()) #f)
+          ;; We still require mandatory free parameters, but they are not
+          ;; present.  Throw an error!
+          (((more-specs ...) . ())
+           (throw 'option-ref-missing-fps "Missing mandatory free parameters!"
+                  (map free-param-name more-specs)))
+          ;; All other cases: continue extracting the value provided for KEY.
+          (((first-spec . rest-specs) . (first-fp . rest-fps))
+           (if (eqv? (free-param-name first-spec) key)
+               ;; We have found key, now we must simply process the value,
+               ;; test it, and throw, or return it.
+               (match ((free-param-handler first-spec) first-fp)
+                 ((? (free-param-test first-spec) val) val)
+                 (fail (throw 'option-ref "Failed Free Parameter Test:"
+                              (free-param-name first-spec) fail)))
+               ;; This is not the free-param we look for, -> continue looking.
+               (lp rest-specs rest-fps)))
+          (_ (throw 'option-ref "Should never happen!"))))))
 
 (define (subcommand getopt)
   "Return the currently active subcommand of <configuration> CONFIGURATION.
@@ -211,17 +282,11 @@ do so and emit it to PORT."
           (_ "This is free software: you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law.")))
 
-;;; FIXME: We should have a way to parse non-keyword args  [Version 0.9.5?]
-;;;        We should do this by:
-;;; - adding additional field to configuration (argument-pattern) — which
-;;;   should be a simple `match' spec.
-;;; - adding additional logic to getopt parse, to match above field, and add
-;;;   it to resulting values list
-;;; - allow use of option-ref to access these
+;;; FIXME:
 ;;; - add logic to configuration-spec compiler, to check that keys in each
 ;;;   configuration, including from `argument spec' are unique (meaningful
 ;;;   error if not).
-(define* (configuration name terse values #:key (free-param '()) config-dir
+(define* (configuration name terse values #:key (free-params '()) config-dir
            long help? usage? version? license copyright author
            (version-test? string?) (parser simple-parser) alias inherit)
   "Return a configuration.  NAME should be a symbol naming the configuration.
@@ -334,9 +399,9 @@ inherit is set to #t."
                  (_ (throw 'config-spec
                            (_ "Invalid option in configuration.")))))
            ,(match free-params
-              ((? list?) free-params)
+              (((? free-param?) ...) free-params)
               (_ (throw 'config-spec
-                        (_ "FREE-PARAMS should be a list."))))
+                        (_ "FREE-PARAMS should be a list of free-params."))))
            ,(match terse
               ((and (? string?) (? (compose (cut <= <> 40) string-length)))
                terse)

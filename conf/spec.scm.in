@@ -83,6 +83,12 @@
             set-openoption-optional
             open-option
 
+            <free-param>
+            free-param? free-param-name free-param-value free-param-test
+            free-param-handler free-param-terse free-param-long
+            free-param-example free-param-optional free-param-inherit
+            free-param
+
             option?
             option-name
             option-value
@@ -407,38 +413,92 @@ configurations (default #t)."
                     (check-optional optional?)
                     (check-inherit inherit)))
 
+;;;;; Free Param
+;;;
+;;; Free params are additional free or positional parameters that can be
+;;; passed to applications.  They will never be derived from configuration
+;;; files, but can still be specified within configurations, to have conf
+;;; handle their parsing.
+(define-immutable-record-type <free-param>
+  (mecha-free-param name value test handler terse long example optional
+                    inherit)
+  free-param?
+  (name free-param-name set-free-param-name)
+  (value free-param-value set-free-param-value)
+  (test free-param-test set-free-param-test)
+  (handler free-param-handler set-free-param-handler)
+  (terse free-param-terse set-free-param-terse)
+  (long free-param-long set-free-param-long)
+  (example free-param-example set-free-param-example)
+  (optional free-param-optional set-free-param-optional)
+  (inherit free-param-inherit set-free-param-inherit))
+
+(define* (free-param name terse #:key (value '<unset>) (test string?)
+                     (handler identity) long (example "VALUE") optional
+                     inherit)
+  "Return a Free Param.  NAME should be a symbol naming the option and TERSE
+should be a < 40 char description.
+ - LONG: space for a longer description.
+ - VALUE: the value assigned to this private option.
+ - TEST: the predicate to check this VALUE against, after applying the
+relevant handler.
+ - HANDLER: a procedure of one argument to apply to the string as provided
+from the commandline.  This should be a transformer from
+string->value-for-test.
+ - EXAMPLE: an example cli value for help purposes.
+ - OPTIONAL: a boolean to inform us that this free parameter can but does not
+have to be provided.
+ - INHERIT: Should this value be inherited by inheriting subcommand
+configurations.  Unlike options, free-params are by default not inherited."
+  (mecha-free-param (check-name name)
+                    (check-value value)
+                    (check-test test)
+                    (check-handler handler)
+                    (check-terse terse)
+                    (check-long long)
+                    (check-example example)
+                    (check-optional optional)
+                    (check-inherit inherit)))
+
 ;;;;; Generic Option Procedures
 
 (define (option? obj)
   "Return #t if OBJ is an option; #f otherwise."
   (match obj
-    ((or (? public-option?) (? private-option?) (? open-option?)) #t)
+    ((or (? public-option?) (? private-option?) (? open-option?)
+         (? free-param?)) #t)
     (_ #f)))
 
-(define (option-generic priproc pubproc openproc option)
+(define (option-generic priproc pubproc openproc paramproc option)
   (match option
     ((? private-option?) (priproc option))
     ((? public-option?) (pubproc option))
-    ((? open-option?) (openproc option))))
+    ((? open-option?) (openproc option))
+    ((? free-param?) (paramproc option))))
 
 (define (option-name option)
-  (option-generic prioption-name puboption-name openoption-name option))
+  (option-generic prioption-name puboption-name openoption-name
+                  free-param-name option))
 
 (define (option-value option)
-  (option-generic prioption-value puboption-value openoption-value option))
+  (option-generic prioption-value puboption-value openoption-value
+                  free-param-value option))
 
 (define (option-test option)
-  (option-generic prioption-test puboption-test openoption-test option))
+  (option-generic prioption-test puboption-test openoption-test
+                  free-param-test option))
 
 (define (option-terse option)
-  (option-generic prioption-terse puboption-terse openoption-terse option))
+  (option-generic prioption-terse puboption-terse openoption-terse
+                  free-param-terse option))
 
 (define (option-long option)
-  (option-generic prioption-long puboption-long openoption-long option))
+  (option-generic prioption-long puboption-long openoption-long
+                  free-param-long option))
 
 (define (option-inherit option)
   (option-generic prioption-inherit puboption-inherit openoption-inherit
-                  option))
+                  free-param-inherit option))
 
 
 ;;;; Configuration
