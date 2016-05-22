@@ -540,6 +540,13 @@ configurations.  Unlike options, free-params are by default not inherited."
 (define (configuration-file configuration)
   "Return the full filename of the CONFIGURATION file we want to use, or #f if
 we don't have a configuration dir."
+  ;; FIXME: This currently assumes that the configuraiton file naming
+  ;; convention will always be 'config-dir' + 'name of config'.  This
+  ;; assumption breaks down in parsers that provide a single configuraiton
+  ;; file for an entire application configuration.
+  ;;
+  ;; We should defer to configuration-parsers to determine
+  ;; `configuration-file'.
   (if (configuration-dir configuration)
       (string-append (configuration-dir configuration)
                      file-name-separator-string

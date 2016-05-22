@@ -493,6 +493,11 @@ augmented by the configuration values from its configuration file."
 (define (read-merge config)
   "Read the configuration file for CONFIG and return an augmented config in
 the %io-monad."
+  ;; FIXME: We should simply defer to configuration-parser here, to maximise
+  ;; flexibility.  See ensure-config-files for details.
+  ;;
+  ;; This would involve make the configuration-reader procedures in the
+  ;; parsers io-monadic, and us simply passing config there.
   (if (and (configuration-file config)
            (any open-option? (configuration-options config)))
       (mlet* %io-monad
@@ -630,6 +635,13 @@ when they will be dropped for inheritance purposes in any case."
 that do not exist.
 Return values is unspecified in the io-monad."
   (define (ensure config)
+    ;; FIXME: in order that we can allow flexible approaches to
+    ;; configuration-parsers (e.g. store all config in one file), we must
+    ;; minimise operations carried out here.  We should simply pass all
+    ;; required raw materials to the parser (root-configuration).
+    ;;
+    ;; Each configuration-parser will need to handle looping etc.  Each parser
+    ;; should be designed to work in the io-monad.
     (with-monad %io-monad
       (munless (or (not (configuration-file config))
                    (any open-option?
