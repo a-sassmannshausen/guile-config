@@ -8,17 +8,17 @@
 ;; This file is part of Guile-Config.
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
-;; under the terms of the GNU Affero General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or (at your
-;; option) any later version.
+;; under the terms of the GNU General Public License as published by the Free
+;; Software Foundation, either version 3 of the License, or (at your option)
+;; any later version.
 ;;
 ;; This program is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public
-;; License for more details.
+;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Public License for more
+;; details.
 ;;
-;; You should have received a copy of the GNU Affero General Public License
-;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;; You should have received a copy of the GNU General Public License along
+;; with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 ;;
@@ -64,6 +64,6 @@
   (synopsis "Guile application configuration parsing library.")
   (description "Guile-config is a library enhancing (ice-9 getopt-long).")
   (home-page "https://gitlab.com/guile-projects/guile-config")
-  (license agpl3+))
+  (license gpl3+))
 
 ;;; guix.scm ends here.

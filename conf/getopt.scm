@@ -1,4 +1,4 @@
-;;; Config Getpot --- Configuration Getopt-Long intersection
+;;; Config Getopt --- Configuration Getopt-Long intersection
 ;;; Copyright © 2015 Alex Sassmannshausen <alex@pompo.co>
 ;;;
 ;;; This file is part of Guile-Config.
