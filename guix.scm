@@ -40,21 +40,16 @@
              (gnu packages)
              (gnu packages autotools)
              (gnu packages gettext)
+             (gnu packages version-control)
              (gnu packages guile)
+             (gnu packages perl)
              (gnu packages pkg-config)
              (gnu packages texinfo))
 
 (package
   (name "guile-config")
-  (version "0.1.1")
-  (source (origin
-            (method url-fetch)
-            (uri (string-append
-                  "http://alex.pompo.co/software/" name "-" version
-                  ".tar.gz"))
-            ;; SHA is always out of date.
-            (sha256
-             "1b719bn192f9wg24rr0zx8jpmygsvyhfi35iy778pb5p392snrn8")))
+  (version "0.2")
+  (source "./guile-config-0.2.tar.gz")
   (build-system gnu-build-system)
   (native-inputs
    `(("autoconf" ,autoconf)
@@ -63,7 +58,9 @@
      ("pkg-config" ,pkg-config)
      ("texinfo" ,texinfo)))
   (inputs
-   `(("guile" ,guile-2.0)))
+   `(("guile" ,guile-2.0)
+     ("perl" ,perl)
+     ("git" ,git)))
   (synopsis "Guile application configuration parsing library.")
   (description "Guile-config is a library enhancing (ice-9 getopt-long).")
   (home-page "https://gitlab.com/guile-projects/guile-config")
