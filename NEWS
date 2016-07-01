@@ -1,0 +1,36 @@
+                                                              -*- org -*-
+#+TITLE: Guile-Config NEWS – history of user-visible changes
+#+STARTUP: content hidestars
+
+Copyright © 2016 Alex Sassmannshausen <alex@pompo.co>
+
+  Copying and distribution of this file, with or without modification,
+  are permitted in any medium without royalty provided the copyright
+  notice and this notice are preserved.
+
+* Changes in 0.2 (since 0.1.1)
+
+** Add capacity to parse free or positional arguments to a program
+
+Configurations can now be passed a list of `free-parameter` records
+(see documentation), which allows programs to parse not just keyword,
+but also positional arguments.
+
+** Fix bug whereby subcommand was included in `free-paramaters`
+
+** Add inheritance to configurations
+
+Configurations can now inherit common options from their parents in a
+fairly granular way.  See the documentation for details.
+
+** License change to GPLv3+ from AGPLv3+
+
+** Fix test-runner to actually report error when tests fail
+
+** Change dircategory of manual to 'The Algorithmic Language Scheme'
+
+* 0.1.1 Changes in 0.1.1 (since 0.1)
+
+** Bugfix: Fix manual name, so it can be loaded from Info
+
+* 0.1 Initial release
