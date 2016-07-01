@@ -273,6 +273,10 @@
 
 ;; Configure our Gettext use
 (define %gettext-domain "guile-config")
+;; bindtextdomain should be part of the initialization function of our
+;; library.
+;; Alternatively it needs to be called by all possible entry point functions,
+;; checking that it has not been called before.
 (define _
   (begin
     (bindtextdomain %gettext-domain "@localedir@")
