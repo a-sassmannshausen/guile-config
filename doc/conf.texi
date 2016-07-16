@@ -503,10 +503,10 @@ Inheritance at the configuration level is normally switched off.  This
 means that subcommand configurations will not inherit any options from
 their direct parent.
 
-Switching it on in a configuration will result in its direct descendent
+Switching it on in a configuration will result in its direct descendant
 inheriting the exact option definitions defined in this configuration.
 
-That descendent may in turn have inheritance switched off, which would
+That descendant may in turn have inheritance switched off, which would
 result in it neither receiving any options from its parent nor in it
 passing on its options to its subconfigurations.
 
@@ -843,9 +843,6 @@ is set to #t, which means that if the containing configuration's inherit
 setting is set to #t, this option will be passed down.
 @end table
 @end deffn
-
-Normally private options are not named; instead they are simply defined
-immediately within the configuration in which it is needed.
 
 @c *********************************************************************
 @node Initializers
