@@ -785,9 +785,11 @@ As we are talking positional arguments here, the ordering in the list of
 same reason, you cannot have mandatory positional arguments after your
 first optional positional argument.
 
+Finally, inheritance is not implemented for Free Parameters.
+
 @deffn {Scheme Procedure} free-param name terse [#:long #f] @
        [#:value '<unset>] [#:test boolean?] [#:handler identity] @
-       [#:example ``Value''] [#:optional #f] [#:inherit #f]
+       [#:example ``Value''] [#:optional #f]
 
 @code{free-param} is a convenience procedure to create free or
 positional arguments.  Free parameters normally are mandatory, and do
@@ -835,12 +837,6 @@ parameter instead.
 If set to #t, this free paramater can be omitted by the end user.  In
 this case we will either use the default value, or return #f when it is
 queried.
-
-@item inherit
-A boolean indicating whether this option should be passed down to the
-containing configuration's subcommand configurations.  By default this
-is set to #t, which means that if the containing configuration's inherit
-setting is set to #t, this option will be passed down.
 @end table
 @end deffn
 

@@ -86,7 +86,7 @@
             <free-param>
             free-param? free-param-name free-param-value free-param-test
             free-param-handler free-param-terse free-param-long
-            free-param-example free-param-optional free-param-inherit
+            free-param-example free-param-optional
             free-param
 
             option?
@@ -424,8 +424,7 @@ configurations (default #t)."
 ;;; files, but can still be specified within configurations, to have conf
 ;;; handle their parsing.
 (define-immutable-record-type <free-param>
-  (mecha-free-param name value test handler terse long example optional
-                    inherit)
+  (mecha-free-param name value test handler terse long example optional)
   free-param?
   (name free-param-name set-free-param-name)
   (value free-param-value set-free-param-value)
@@ -434,12 +433,10 @@ configurations (default #t)."
   (terse free-param-terse set-free-param-terse)
   (long free-param-long set-free-param-long)
   (example free-param-example set-free-param-example)
-  (optional free-param-optional set-free-param-optional)
-  (inherit free-param-inherit set-free-param-inherit))
+  (optional free-param-optional set-free-param-optional))
 
 (define* (free-param name terse #:key (value '<unset>) (test string?)
-                     (handler identity) long (example "") optional
-                     inherit)
+                     (handler identity) long (example "") optional)
   "Return a Free Param.  NAME should be a symbol naming the option and TERSE
 should be a < 40 char description.
  - LONG: space for a longer description.
@@ -451,9 +448,7 @@ from the commandline.  This should be a transformer from
 string->value-for-test.
  - EXAMPLE: an example cli value for help purposes.
  - OPTIONAL: a boolean to inform us that this free parameter can but does not
-have to be provided.
- - INHERIT: Should this value be inherited by inheriting subcommand
-configurations.  Unlike options, free-params are by default not inherited."
+have to be provided. "
   (mecha-free-param (check-name name)
                     (check-value value)
                     (check-test test)
@@ -461,8 +456,7 @@ configurations.  Unlike options, free-params are by default not inherited."
                     (check-terse terse)
                     (check-long long)
                     (check-example example)
-                    (check-optional optional)
-                    (check-inherit inherit)))
+                    (check-optional optional)))
 
 ;;;;; Generic Option Procedures
 
@@ -502,7 +496,7 @@ configurations.  Unlike options, free-params are by default not inherited."
 
 (define (option-inherit option)
   (option-generic prioption-inherit puboption-inherit openoption-inherit
-                  free-param-inherit option))
+                  (const #f) option))
 
 
 ;;;; Configuration

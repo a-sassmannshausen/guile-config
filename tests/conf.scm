@@ -262,7 +262,8 @@
                                       (public-option 'verbose
                                                      "Boolean test."
                                                      #:value #f))
-                                     #:alias 'sc))
+                                     #:alias 'sc
+                                     #:inherit #t))
                 #:help? #t
                 #:free-params
                 (list
@@ -284,6 +285,7 @@
                   #:optional #t
                   #:handler string->symbol
                   #:test symbol?))
+                #:inherit #t
                 #:config-dir "/tmp"))
        (getopt (cut getopt-config <> config)))
   (test-equal "Simple param"
@@ -323,9 +325,7 @@
     (catch 'option-ref-spare-fps
       (lambda ()
         (option-ref (getopt '("script" "subconf" "free-param" "--verbose"))
-                    '(test))
-        ((@@ (conf) parse-free-params) 'csv-strings
-         '("test" "5" "symbol" "nine") fp-declaration))
+                    '(test)))
       (lambda args #t)))
   ;; ("script" "--test" "hello" "--verbose")  ; Bails out OK (no such opt)
   ;; ("script" "subconf" "blah" "--target")   ; Bails out OK (no such opt)
