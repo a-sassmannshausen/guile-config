@@ -499,7 +499,7 @@ the %io-monad."
   ;; This would involve make the configuration-reader procedures in the
   ;; parsers io-monadic, and us simply passing config there.
   (if (and (configuration-file config)
-           (any open-option? (configuration-options config)))
+           (any (compose open-option? cdr) (configuration-options config)))
       (mlet* %io-monad
           ((old-io (set-io-input-file (configuration-file config)))
            (config (configuration-read config))
