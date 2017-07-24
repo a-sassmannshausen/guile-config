@@ -25,13 +25,14 @@
   ;; Re-export parsers
   ;; Re-export licenses
   #:use-module (config api)
+  #:use-module (config getopt-long)
   #:use-module (config helpers)
   #:use-module (config licenses)
   #:use-module (ice-9 match)
   #:use-module (ice-9 threads)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-  #:export (getopt-config option-ref))
+  #:export (getopt-config-auto getopt-config option-ref))
 
 ;;;; UI
 
@@ -50,8 +51,14 @@ should be either:
 
 (define* (getopt-config-auto commandline configuration)
   ;; Resolve --help, --usage, --version
-  (identity
-   (getopt-config commandline configuration #f)))
+  (let ((cdx (getopt-config commandline configuration)))
+    (cond ((or (option-ref cdx 'help) (option-ref cdx 'usage))
+           (emit-help cdx)
+           (exit 0))
+          ((option-ref cdx 'version)
+           (emit-version cdx)
+           (exit 0))
+          (else cdx))))
 
 ;; First procedure will compile root configuration, hand off to parser to
 ;; ensure configuration files exist.
@@ -92,29 +99,22 @@ should be either:
                (apply valus (valus-fetch (reagents-inverted reagents)))
                reagents)))
     ;; The writer should always process the entire configuration tree.
-    (write (parser-writer (force (metadata-parser (codex-metadata cdx))))
-           configuration reagents)
+    (write (parser-writer (codex-metadatum 'parser cdx)) configuration
+           reagents)
     (call-with-values
         (lambda ()
           (parallel
            ;; Merge configuration file through parser into cdx
-           (read (parser-reader (force
-                                 (metadata-parser (codex-metadata cdx))))
-                 cdx reagents)
+           (read (parser-reader (codex-metadatum 'parser cdx)) cdx reagents)
            ;; merge commandline into cdx
-           (read-commandline commandline cdx reagents)))
+           (read-commandline (reagents-commandline reagents) cdx)))
       ;; codex-merge: combine the two above, with commandline-cdx precedence.
       ;; FIXME
       (lambda (configfile-cdx commandline-cdx)
-        configfile-cdx))))
+        commandline-cdx))))
 
 
 ;;;;; Helpers
-
-;; FIXME: Call-back into getopt-long
-(define (read-commandline commandline codex reagents)
-  "Return a codex, with commandline merged into codex, getopt-long style."
-  codex)
 
 ;; Rules for metadata inheritance:
 ;; if field <empty>, check field in next ancestor, ... Select first value or
@@ -127,8 +127,11 @@ should be either:
            (let lp ((current-entry (inverted-next-config inverted))
                     (rest (cdr inverted)))
              (match (getter current-entry)
-               ((? empty? value)
-                (if (null? rest)
+               ((or (? not value) (? empty? value))
+                (if (or (null? rest)
+                        (not (configuration-inheritance? current-entry))
+                        (not (configuration-inheritance?
+                              (inverted-next-config rest))))
                     value
                     (lp (inverted-next-config rest)
                         (cdr rest))))
@@ -152,81 +155,28 @@ should be either:
   "Return the valus, with inheritance resolved, for INVERTED."
   (map (lambda (getter)
          ;; Delay as we may never need some of the fields we generate here.
-         (delay
-           (let* ((actual (inverted-next-config inverted))
-                  (ancestors (cdr inverted))
-                  (result (getter actual)))
-             (if (null? ancestors)
-                 result                 ; Done traversing, return kw or args.
-                 (let lp ((current-ancestor (inverted-next-config ancestors))
-                          (rest (cdr ancestors))
-                          (result result))
-                   (if (not (configuration-inheritance? current-ancestor))
-                       result           ; Exit: ancestor inheritance disabled
-                       (let ((result (fold (lambda (candidate result)
-                                             (if (inheritable? candidate)
-                                                 (cons candidate result)
-                                                 result))
-                                           result
-                                           (getter current-ancestor))))
-                         (if (null? rest)
-                             result
-                             (lp (inverted-next-config rest)
-                                 (cdr rest)
-                                 result)))))))))
+         (let* ((actual (inverted-next-config inverted))
+                (ancestors (cdr inverted))
+                (result (getter actual)))
+           (if (null? ancestors)
+               result                 ; Done traversing, return kw or args.
+               (let lp ((current-ancestor (inverted-next-config ancestors))
+                        (rest (cdr ancestors))
+                        (result result))
+                 (if (not (configuration-inheritance? current-ancestor))
+                     result           ; Exit: ancestor inheritance disabled
+                     (let ((result (fold (lambda (candidate result)
+                                           (if (inheritable? candidate)
+                                               (cons candidate result)
+                                               result))
+                                         result
+                                         (getter current-ancestor))))
+                       (if (null? rest)
+                           result
+                           (lp (inverted-next-config rest)
+                               (cdr rest)
+                               result))))))))
        (list configuration-keywords configuration-arguments)))
-
-(define (codex-feature key codex)
-  "Return the feature identified by KEY."
-  (let ((features (codex-features codex)))
-    (match key
-      ('name (features-name features))
-      ('synopsis (features-synopsis features))
-      ('description (features-description features))
-      ('alias (features-alias features))
-      ('subcommands (features-subcommands features))
-      ('inheritance? (features-inheritance? features)))))
-
-(define (codex-metadatum key codex)
-  "Return the metadatum identified by KEY."
-  (force
-   (let ((metadata (codex-metadata codex)))
-     (match key
-       ('directory (metadata-directory metadata))
-       ('version (metadata-version metadata))
-       ('license (metadata-license metadata))
-       ('copyright (metadata-copyright metadata))
-       ('author (metadata-author metadata))
-       ('parser (metadata-parser metadata))
-       ('generate-help? (metadata-generate-help? metadata))
-       ('generate-usage? (metadata-generate-usage? metadata))
-       ('generate-version? (metadata-generate-version? metadata))))))
-
-(define (find-argument key arguments)
-  "Return the argument identified by KEY in ARGUMENTS or #f."
-  (catch 'found
-    (lambda ()
-      (fold (lambda (candidate result)
-              (match candidate
-                ((? (compose (cut eq? key <>) argument-name force) jackpot)
-                 (throw 'found jackpot))
-                (_ result)))
-            #f
-            arguments))
-    (lambda (k v) v)))
-
-(define (find-keyword key keywords)
-  "Return the keyword identified by KEY in KEYWORDS or #f."
-  (catch 'found
-    (lambda ()
-      (fold (lambda (candidate result)
-              (match candidate
-                ((? (compose (cut eq? key <>) keyword-name force) jackpot)
-                 (throw 'found jackpot))
-                (_ result)))
-            #f
-            keywords))
-    (lambda (k v) v)))
 
 
 ;;;; Emitters
@@ -242,7 +192,7 @@ so and emit it to PORT."
         (usage-string (string-append "Usage" ": "))
         (options-string (string-append "Options" ":"))
         (subcommands-string (string-append "Subcommands" ":")))
-    (let ((keywords (force (valus-keywords valus))))
+    (let ((keywords (valus-keywords valus)))
       ;; Short Help
       (let ((full-cmd-name (string-join
                             (map symbol->string
@@ -254,7 +204,7 @@ so and emit it to PORT."
                                (+ (string-length usage-string)
                                   (string-length full-cmd-name)
                                   1)
-                               (force (valus-arguments valus)))))
+                               (valus-arguments valus))))
       ;; Detailed Help
       (format port "~%~a~%~a~%" options-string
               (sort-detailed-opts (filter-keywords keywords))))

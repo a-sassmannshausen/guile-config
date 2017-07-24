@@ -43,23 +43,23 @@
 
             <secret>
             secret secret?
-            secret-name secret-value secret-synopsis secret-inheritable?
+            secret-name secret-default secret-synopsis secret-inheritable?
 
             <switch>
             switch switch?
-            switch-name switch-value switch-test switch-handler
+            switch-name switch-default switch-test switch-handler
             switch-character switch-synopsis switch-description switch-example
             switch-optional? switch-inheritable?
 
             <setting>
             setting setting?
-            setting-name setting-value setting-test setting-handler
+            setting-name setting-default setting-test setting-handler
             setting-character setting-synopsis setting-description
             setting-example setting-optional? setting-inheritable?
 
             <argument>
             argument argument?
-            argument-name argument-value argument-test argument-test
+            argument-name argument-default argument-test argument-test
             argument-handler argument-synopsis argument-description
             argument-example argument-optional? argument-inheritable?
 
@@ -82,6 +82,7 @@
             <codex>
             codex codex?
             codex-features codex-metadata codex-valus codex-reagents
+            set-codex-valus
 
             <features>
             features features?
@@ -100,11 +101,16 @@
             valus-keywords valus-arguments
 
             keyword-name
+            keyword-default
+            set-keyword-default
             inheritable?
             inverted-next-name inverted-next-config
 
             subcommand-reagents
             subcommand-path
+
+            codex-metadatum codex-feature
+            find-keyword find-argument
             ))
 
 
@@ -130,7 +136,7 @@
   secret make-secret
   secret?
   (name         secret-name         (default 'secret))
-  (value        secret-value        (default 42))
+  (default      secret-default      (default 42))
   (synopsis     secret-synopsis     (default "Solution"))
   (inheritable? secret-inheritable? (default #t)))
 
@@ -146,14 +152,14 @@
 (define-record-type* <switch>
   switch make-switch
   switch?
-  (name         switch-name         (default 'switch))
-  (value        switch-value        (default "error"))
+  (name         switch-name)
+  (default      switch-default      (default (empty)))
   (test         switch-test         (default string?))
   (handler      switch-handler      (default identity))
   (character    switch-character    (default #f))
   (synopsis     switch-synopsis     (default ""))
   (description  switch-description  (default ""))
-  (example      switch-example      (default "error|test"))
+  (example      switch-example      (default ""))
   (optional?    switch-optional?    (default #t))
   (inheritable? switch-inheritable? (default #t)))
 
@@ -164,14 +170,14 @@
 (define-record-type* <setting>
   setting make-setting
   setting?
-  (name         setting-name         (default 'setting))
-  (value        setting-value        (default "frobnigate"))
+  (name         setting-name)
+  (default      setting-default      (default (empty)))
   (test         setting-test         (default string?))
   (handler      setting-handler      (default identity))
   (character    setting-character    (default #f))
-  (synopsis     setting-synopsis     (default "Override action on bar"))
+  (synopsis     setting-synopsis     (default ""))
   (description  setting-description  (default ""))
-  (example      setting-example      (default "frobnigate|slurp"))
+  (example      setting-example      (default ""))
   (optional?    setting-optional?    (default #f))
   (inheritable? setting-inheritable? (default #t)))
 
@@ -184,6 +190,18 @@
     (($ <secret> name) name)
     (($ <switch> name) name)
     (($ <setting> name) name)))
+
+(define (keyword-default keyword)
+  (match keyword
+    (($ <secret> _ value) value)
+    (($ <switch> _ value) value)
+    (($ <setting> _ value) value)))
+
+(define (set-keyword-default keyword value)
+  (match keyword
+    (($ <secret>) (secret (inherit keyword) (default value)))
+    (($ <switch>) (switch (inherit keyword) (default value)))
+    (($ <setting>) (setting (inherit keyword) (default value)))))
 
 (define (keyword-inheritable? keyword)
   (match keyword
@@ -201,7 +219,7 @@
   argument make-argument
   argument?
   (name         argument-name        (default 'argument))
-  (value        argument-value       (default "foo"))
+  (default      argument-default       (default "foo"))
   (test         argument-test        (default string?))
   (handler      argument-handler     (default identity))
   (synopsis     argument-synopsis    (default "FOO to frobnigate bar with"))
@@ -248,9 +266,9 @@
   (author            configuration-author            (default (empty)))
   (parser            configuration-parser            (default (empty)))
   (alias             configuration-alias             (default #f))
-  (generate-help?    configuration-generate-help?    (default (empty)))
-  (generate-usage?   configuration-generate-usage?   (default (empty)))
-  (generate-version? configuration-generate-version? (default (empty)))
+  (generate-help?    configuration-generate-help?    (default #f))
+  (generate-usage?   configuration-generate-usage?   (default #f))
+  (generate-version? configuration-generate-version? (default #f))
   (inheritance?      configuration-inheritance?      (default #t)))
 
 (define-record-type <empty-configuration>
@@ -444,6 +462,59 @@ CONFIGURATION should be a <configuration>."
     (() #f)
     ((config) config)
     (_ (throw 'find-subcommand "Should not have happened."))))
+
+(define (codex-feature key codex)
+  "Return the feature identified by KEY."
+  (let ((features (codex-features codex)))
+    (match key
+      ('name (features-name features))
+      ('synopsis (features-synopsis features))
+      ('description (features-description features))
+      ('alias (features-alias features))
+      ('subcommands (features-subcommands features))
+      ('inheritance? (features-inheritance? features)))))
+
+(define (codex-metadatum key codex)
+  "Return the metadatum identified by KEY."
+  (force
+   (let ((metadata (codex-metadata codex)))
+     (match key
+       ('directory (metadata-directory metadata))
+       ('version (metadata-version metadata))
+       ('license (metadata-license metadata))
+       ('copyright (metadata-copyright metadata))
+       ('author (metadata-author metadata))
+       ('parser (metadata-parser metadata))
+       ('generate-help? (metadata-generate-help? metadata))
+       ('generate-usage? (metadata-generate-usage? metadata))
+       ('generate-version? (metadata-generate-version? metadata))))))
+
+(define (find-argument key arguments)
+  "Return the argument identified by KEY in ARGUMENTS or #f."
+  (catch 'found
+    (lambda ()
+      (fold (lambda (candidate result)
+              (match candidate
+                ((? (compose (cut eq? key <>) argument-name) jackpot)
+                 (throw 'found jackpot))
+                (_ result)))
+            #f
+            arguments))
+    (lambda (k v) v)))
+
+(define (find-keyword key keywords)
+  "Return the keyword identified by KEY in KEYWORDS or #f."
+  (catch 'found
+    (lambda ()
+      (fold (lambda (candidate result)
+              (match candidate
+                ((? (compose (cut eq? key <>) keyword-name) jackpot)
+                 (throw 'found (keyword-default jackpot)))
+                (_ result)))
+            #f
+            keywords))
+    (lambda (k v) v)))
+
 
 
 ;;;; Configuration Parsers
