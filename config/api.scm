@@ -101,6 +101,7 @@
             valus-keywords valus-arguments
 
             keyword-name
+            keyword-character
             keyword-default
             set-keyword-default
             inheritable?
@@ -197,35 +198,40 @@ try to deduce from the KEYWORD name.  Else return the character setting."
     (($ <setting> name _ _ _ #t)
      (string-ref (symbol->string name) 0))
     (($ <setting> _ _ _ _ #f) #f)
-    (($ <setting> _ _ _ _ character) character)))
+    (($ <setting> _ _ _ _ character) character)
+    (n (throw 'keyword-character "no matching pattern" n))))
 
 (define (keyword-name keyword)
   "Return KEYWORD name."
   (match keyword
     (($ <secret> name) name)
     (($ <switch> name) name)
-    (($ <setting> name) name)))
+    (($ <setting> name) name)
+    (n (throw 'keyword-name "no matching pattern" n))))
 
 (define (keyword-default keyword)
   "Return KEYWORD default."
   (match keyword
     (($ <secret> _ value) value)
     (($ <switch> _ value) value)
-    (($ <setting> _ value) value)))
+    (($ <setting> _ value) value)
+    (n (throw 'keyword-default "no matching pattern" n))))
 
 (define (set-keyword-default keyword value)
   "Return a new version of KEYWORD, with its default replaced by VALUE."
   (match keyword
     (($ <secret>) (secret (inherit keyword) (default value)))
     (($ <switch>) (switch (inherit keyword) (default value)))
-    (($ <setting>) (setting (inherit keyword) (default value)))))
+    (($ <setting>) (setting (inherit keyword) (default value)))
+    (n (throw 'set-keyword-default "no matching pattern" n))))
 
 (define (keyword-inheritable? keyword)
   "Return KEYWORD inheritable? switch."
   (match keyword
     (($ <secret>) (secret-inheritable? keyword))
     (($ <switch>) (switch-inheritable? keyword))
-    (($ <setting>) (setting-inheritable? keyword))))
+    (($ <setting>) (setting-inheritable? keyword))
+    (n (throw 'keyword-inheritable? "no matching pattern" n))))
 
 ;;;; Arguments
 
@@ -252,7 +258,8 @@ try to deduce from the KEYWORD name.  Else return the character setting."
     (($ <secret>) (secret-inheritable? obj))
     (($ <switch>) (switch-inheritable? obj))
     (($ <setting>) (setting-inheritable? obj))
-    (($ <argument>) (argument-inheritable? obj))))
+    (($ <argument>) (argument-inheritable? obj))
+    (n (throw 'inheritable? "no matching pattern" n))))
 
 ;;;; Configurations
 
@@ -442,7 +449,8 @@ stage."
           configuration)
     ((inverted . newcommandline)
      ;; Return reagents for the inverted subcommand requested on COMMANDLINE.
-     (reagents inverted newcommandline commandline configuration))))
+     (reagents inverted newcommandline commandline configuration))
+    (n (throw 'subcommand-reagents "no matching pattern" n))))
 
 (define* (subcommand-parse glue commandline configuration)
   "GLUE should be a procedure of 5 arguments: it will be passed the current
@@ -468,7 +476,9 @@ CONFIGURATION should be a <configuration>."
                     (cdr rest)
                     next
                     (glue current next name rest path))))
-           (_ path)))))))
+           (_ path)
+           (n (throw 'subcommand-parse "no matching pattern" n)))))
+      (n (throw 'subcommand-parse "no matching pattern" n)))))
 
 (define (find-subcommand name configuration)
   "Return the subcommand in CONFIGURATION identified by NAME, or #f."
@@ -493,7 +503,8 @@ CONFIGURATION should be a <configuration>."
       ('description (features-description features))
       ('alias (features-alias features))
       ('subcommands (features-subcommands features))
-      ('inheritance? (features-inheritance? features)))))
+      ('inheritance? (features-inheritance? features))
+      (n (throw 'codex-feature "no matching pattern" n)))))
 
 (define (codex-metadatum key codex)
   "Return the metadatum identified by KEY."
@@ -508,7 +519,8 @@ CONFIGURATION should be a <configuration>."
        ('parser (metadata-parser metadata))
        ('generate-help? (metadata-generate-help? metadata))
        ('generate-usage? (metadata-generate-usage? metadata))
-       ('generate-version? (metadata-generate-version? metadata))))))
+       ('generate-version? (metadata-generate-version? metadata))
+       (n (throw 'codex-metadatum "no matching pattern" n))))))
 
 (define (find-argument key arguments)
   "Return the argument identified by KEY in ARGUMENTS or #f."
@@ -640,5 +652,6 @@ CONFIGURATION should be a <configuration>."
                    (sort opts
                          (lambda (a b)
                            (string-ci<? (symbol->string (car a))
-                                        (symbol->string (car b))))))))
+                                        (symbol->string (car b)))))))
+        (n (throw 'simple-parser "no matching pattern" n)))
      configuration)))

@@ -47,7 +47,8 @@ should be either:
     (match key
       (() (valus-arguments valus))
       ((key) (or (find-argument key (valus-arguments valus)) default))
-      (key (or (find-keyword key (valus-keywords valus)) default)))))
+      (key (or (find-keyword key (valus-keywords valus)) default))
+      (n (throw 'option-ref "no matching pattern" n)))))
 
 (define* (getopt-config-auto commandline configuration)
   ;; Resolve --help, --usage, --version
@@ -135,7 +136,8 @@ should be either:
                     value
                     (lp (inverted-next-config rest)
                         (cdr rest))))
-               (value value)))))
+               (value value)
+               (n (throw 'metadata-fetch "no matching pattern" n))))))
        (list configuration-directory
              configuration-version
              configuration-license
@@ -207,15 +209,17 @@ so and emit it to PORT."
                                (valus-arguments valus))))
       ;; Detailed Help
       (format port "~%~a~%~a~%" options-string
-              (sort-detailed-opts (filter-keywords keywords))))
+              (sort-detailed-keywords (filter-keywords keywords))))
     ;; Subcommand listing
     (match (sort-subcommands (codex-feature 'subcommands codex))
       ("" #f)
-      (subcommands (format port "~%~a~%~a~%" subcommands-string subcommands)))
+      (subcommands (format port "~%~a~%~a~%" subcommands-string subcommands))
+      (n (throw 'emit-help "no matching pattern" n)))
     ;; Description
     (match (codex-feature 'description codex)
       ((? (negate empty?) desc)
-       (format port "~%~a~%" (fill-paragraph desc 80))))))
+       (format port "~%~a~%" (fill-paragraph desc 80)))
+      (n (throw 'emit-help "no matching pattern" n)))))
 
 (define* (emit-version codex #:optional (port #t))
   "Traverse the config in CODEX, building a GNU-style version message as we
@@ -228,13 +232,15 @@ do so and emit it to PORT."
              (string-append (symbol->string name) " " version))
             ((name (? number? version))
              (string-append (symbol->string name)
-                            (number->string version))))
+                            (number->string version)))
+            (n (throw 'emit-version "no matching pattern" n)))
           (match (map (cut codex-metadatum <> codex) '(copyright author))
             ((or (($ <empty>) _) (_ ($ <empty>))) "")
             ((years author)
              (string-append "Copyright (C) "
                             (string-join (map number->string years) ", ")
-                            " " author "\n")))
+                            " " author "\n"))
+            (n (throw 'emit-version "no matching pattern" n)))
           (match (codex-metadatum 'license codex)
             ((? license? license)
              (string-append (license->string license) "\n"))
@@ -299,10 +305,11 @@ the subcommands contained in CONFIGS."
                               "  "
                               synopsis)))
             subcommand-specs)
-       string-ci<=?)))
+       string-ci<=?))
+     (n (throw 'sort-subcommands "no matching pattern" n)))
    "\n"))
 
-(define (sort-detailed-opts keywords)
+(define (sort-detailed-keywords keywords)
   "Return a formatted string of KEYWORDS.  An example of our output:
 
     --name     -n   Name of user
@@ -314,15 +321,19 @@ the subcommands contained in CONFIGS."
           longest))
 
   (string-join
-   (match (fold (lambda (opt result)
+   (match (fold (lambda (kwd result)
                   (match result
                     ((keywords . longest)
-                     (match opt
-                       ((or ($ <switch> (= symbol->string n) _ _ _ s t)
-                            ($ <setting> (= symbol->string n) _ _ _ s t))
+                     (match kwd
+                       ((or ($ <switch> (= symbol->string n) _ _ _ _ t)
+                            ($ <setting> (= symbol->string n) _ _ _ _ t))
                         (if ((compose (cut > <> longest) string-length) n)
-                            (kwrd-spec n s t keywords (string-length n))
-                            (kwrd-spec n s t keywords longest)))))))
+                            (kwrd-spec n (keyword-character kwd)
+                                       t keywords (string-length n))
+                            (kwrd-spec n (keyword-character kwd)
+                                       t keywords longest)))
+                       (n (throw 'sort-detailed-keywords
+                                 "no matching pattern" n))))))
                 '(() . 0)
                 keywords)
      ((kwrd-specs . longest)
@@ -334,7 +345,8 @@ the subcommands contained in CONFIGS."
                                        "    ")
                                    "  " t)))
                  kwrd-specs)
-            string-ci<=?)))
+            string-ci<=?))
+     (n (throw 'sort-detailed-keywords "no matching pattern" n)))
    "\n"))
 
 (define (sort-keywords keywords indent arguments)
@@ -363,7 +375,8 @@ This formatting is intended for the brief summary of our command."
                 (string str))
          (if (zero? count)
              string
-             (lp (1- count) (string-append string "]")))))))
+             (lp (1- count) (string-append string "]")))))
+      (n (throw 'arguments-string "no matching pattern" n))))
   (define (boolproc? proc) (eq? 'boolean? (procedure-name proc)))
 
   (string-join
@@ -378,7 +391,8 @@ This formatting is intended for the brief summary of our command."
                        (map (cut string-join <>
                                  (string-append "\n" (whitespace)))
                             (map (cut sort <> string-ci<=?)
-                                 (list long-bools short-rest long-rest)))))))
+                                 (list long-bools short-rest long-rest)))))
+                (n (throw 'sort-keywords "no matching pattern" n))))
             ;; Results in:
             ;; (list (list of chars) (formated long keywords)
             ;;       (formatted short rest keywords) (formatted long rest keywords))
@@ -386,9 +400,10 @@ This formatting is intended for the brief summary of our command."
                     (match sorted
                       ((short-bools long-bools short-rest long-rest)
                        (match keyword
-                         ((or ($ <switch> n _ t _ s _ _ e)
-                              ($ <setting> n _ t _ s _ _ e))
-                          (let ((n (symbol->string n)))
+                         ((or ($ <switch> n _ t _ _ _ _ e)
+                              ($ <setting> n _ t _ _ _ _ e))
+                          (let ((n (symbol->string n))
+                                (s (keyword-character keyword)))
                             (cond ((and s (boolproc? t)) ; short bool
                                    (list (cons s short-bools) long-bools
                                          short-rest long-rest))
@@ -413,7 +428,8 @@ This formatting is intended for the brief summary of our command."
                                      ,(cons (string-append "[--" n "=" e "]")
                                             long-rest))))))
                          (_ (throw 'config
-                                   "Should not have happened"))))))
+                                   "Should not have happened"))))
+                      (n (throw 'sort-keywords "no matching pattern" n))))
                   '(() () () ())
                   keywords)))
    (string-append "\n" (whitespace))))

@@ -49,7 +49,8 @@
                    (switch
                     (name id) (character chr) (test boolean?) (default #f)
                     (handler identity) (optional? #f))) 
-                  ((_ _ (or #f ($ <empty>))) #f))
+                  ((_ _ (or #f ($ <empty>))) #f)
+                  (n (throw 'augment-keywords "no matching pattern" n)))
                 `((help #\h ,(codex-metadatum 'generate-help? codex))
                   (usage #f ,(codex-metadatum 'generate-usage? codex))
                   (version #f ,(codex-metadatum 'generate-version? codex)))))
@@ -103,4 +104,5 @@
          (match single-char
            ((? char?) (cons `(single-char ,single-char)
                             (value-entry)))
-           (#f        (value-entry)))))
+           (#f        (value-entry))
+           (n (throw 'getopt-spec "no matching pattern" n)))))
