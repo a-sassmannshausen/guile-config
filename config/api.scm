@@ -136,8 +136,8 @@
   secret make-secret
   secret?
   (name         secret-name         (default 'secret))
-  (default      secret-default      (default 42))
-  (synopsis     secret-synopsis     (default "Solution"))
+  (default      secret-default      (default (empty)))
+  (synopsis     secret-synopsis     (default ""))
   (inheritable? secret-inheritable? (default #t)))
 
 ;;;;; Switches & Settings
@@ -156,7 +156,7 @@
   (default      switch-default      (default (empty)))
   (test         switch-test         (default string?))
   (handler      switch-handler      (default identity))
-  (character    switch-character    (default #f))
+  (character    switch-character    (default #t))
   (synopsis     switch-synopsis     (default ""))
   (description  switch-description  (default ""))
   (example      switch-example      (default ""))
@@ -174,7 +174,7 @@
   (default      setting-default      (default (empty)))
   (test         setting-test         (default string?))
   (handler      setting-handler      (default identity))
-  (character    setting-character    (default #f))
+  (character    setting-character    (default #t))
   (synopsis     setting-synopsis     (default ""))
   (description  setting-description  (default ""))
   (example      setting-example      (default ""))
@@ -185,25 +185,43 @@
 
 ;; Keywords can name any of the above three runtime configuration settings.
 
+(define (keyword-character keyword)
+  "Return the KEYWORD short version, i.e. character.  If character is true,
+try to deduce from the KEYWORD name.  Else return the character setting."
+  (match keyword
+    (($ <secret>) #f)
+    (($ <switch> name _ _ _ #t)
+     (string-ref (symbol->string name) 0))
+    (($ <switch> _ _ _ _ #f) #f)
+    (($ <switch> _ _ _ _ character) character)
+    (($ <setting> name _ _ _ #t)
+     (string-ref (symbol->string name) 0))
+    (($ <setting> _ _ _ _ #f) #f)
+    (($ <setting> _ _ _ _ character) character)))
+
 (define (keyword-name keyword)
+  "Return KEYWORD name."
   (match keyword
     (($ <secret> name) name)
     (($ <switch> name) name)
     (($ <setting> name) name)))
 
 (define (keyword-default keyword)
+  "Return KEYWORD default."
   (match keyword
     (($ <secret> _ value) value)
     (($ <switch> _ value) value)
     (($ <setting> _ value) value)))
 
 (define (set-keyword-default keyword value)
+  "Return a new version of KEYWORD, with its default replaced by VALUE."
   (match keyword
     (($ <secret>) (secret (inherit keyword) (default value)))
     (($ <switch>) (switch (inherit keyword) (default value)))
     (($ <setting>) (setting (inherit keyword) (default value)))))
 
 (define (keyword-inheritable? keyword)
+  "Return KEYWORD inheritable? switch."
   (match keyword
     (($ <secret>) (secret-inheritable? keyword))
     (($ <switch>) (switch-inheritable? keyword))
@@ -218,17 +236,18 @@
 (define-record-type* <argument>
   argument make-argument
   argument?
-  (name         argument-name        (default 'argument))
-  (default      argument-default       (default "foo"))
-  (test         argument-test        (default string?))
-  (handler      argument-handler     (default identity))
-  (synopsis     argument-synopsis    (default "FOO to frobnigate bar with"))
-  (description  argument-description (default ""))
-  (example      argument-example     (default "FOO|FOB"))
-  (optional?    argument-optional?   (default #t))
+  (name         argument-name)
+  (default      argument-default      (default (empty)))
+  (test         argument-test         (default string?))
+  (handler      argument-handler      (default identity))
+  (synopsis     argument-synopsis     (default ""))
+  (description  argument-description  (default ""))
+  (example      argument-example      (default ""))
+  (optional?    argument-optional?    (default #t))
   (inheritable? argument-inheritable? (default #t)))
 
 (define (inheritable? obj)
+  "Return #t if OBJ is inheritable."
   (match obj
     (($ <secret>) (secret-inheritable? obj))
     (($ <switch>) (switch-inheritable? obj))
@@ -254,7 +273,7 @@
   configuration make-configuration
   configuration?
   (name              configuration-name)
-  (synopsis          configuration-synopsis          (default "foo frobnigates bar"))
+  (synopsis          configuration-synopsis          (default ""))
   (description       configuration-description       (default ""))
   (keywords          configuration-keywords          (default '()))
   (arguments         configuration-arguments         (default '()))
@@ -266,9 +285,9 @@
   (author            configuration-author            (default (empty)))
   (parser            configuration-parser            (default (empty)))
   (alias             configuration-alias             (default #f))
-  (generate-help?    configuration-generate-help?    (default #f))
-  (generate-usage?   configuration-generate-usage?   (default #f))
-  (generate-version? configuration-generate-version? (default #f))
+  (generate-help?    configuration-generate-help?    (default #t))
+  (generate-usage?   configuration-generate-usage?   (default #t))
+  (generate-version? configuration-generate-version? (default #t))
   (inheritance?      configuration-inheritance?      (default #t)))
 
 (define-record-type <empty-configuration>
@@ -372,9 +391,11 @@
 ;; the list, following the inheritance protocol.
 
 (define (inverted-next-name inverted)
+  "Return the name of the next entry in the list of INVERTED."
   (caar inverted))
 
 (define (inverted-next-config inverted)
+  "Return the configuration of the next entry in the list of INVERTED."
   (cdar inverted))
 
 ;;;; Subcommand handlers
