@@ -75,16 +75,17 @@
   (reverse
    (fold
     (lambda (kwd done)
-      (match kwd
-        (($ <switch> name ($ <empty>) test handler character _ _ _ optional)
-         (cons (getopt-spec name test handler character optional #t) done))
-        (($ <switch> name _ test handler character _ _ _ optional)
-         (cons (getopt-spec name test handler character optional #f) done))
-        (($ <setting> name ($ <empty>) test handler character _ _ _ optional)
-         (cons (getopt-spec name test handler character optional #t) done))
-        (($ <setting> name _ test handler character _ _ _ optional)
-         (cons (getopt-spec name test handler character optional #f) done))
-        (_ done)))
+      (let ((character (keyword-character kwd)))
+        (match kwd
+          (($ <switch> name ($ <empty>) test handler _ _ _ _ optional)
+           (cons (getopt-spec name test handler character optional #t) done))
+          (($ <switch> name _ test handler _ _ _ _ optional)
+           (cons (getopt-spec name test handler character optional #f) done))
+          (($ <setting> name ($ <empty>) test handler _ _ _ _ optional)
+           (cons (getopt-spec name test handler character optional #t) done))
+          (($ <setting> name _ test handler _ _ _ _ optional)
+           (cons (getopt-spec name test handler character optional #f) done))
+          (_ done))))
     '()
     keywords)))
 
