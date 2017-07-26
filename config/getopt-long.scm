@@ -53,7 +53,8 @@
                   (n (throw 'augment-keywords "no matching pattern" n)))
                 `((help #\h ,(codex-metadatum 'generate-help? codex))
                   (usage #f ,(codex-metadatum 'generate-usage? codex))
-                  (version #f ,(codex-metadatum 'generate-version? codex)))))
+                  (version #f ,(codex-metadatum 'generate-version? codex))
+                  (cmdtree #f ,(codex-metadatum 'generate-cmdtree? codex)))))
 
   (let* ((vls (codex-valus codex))
          (kwds (append (valus-keywords vls) (augment-keywords)))

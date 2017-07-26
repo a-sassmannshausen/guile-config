@@ -59,6 +59,9 @@ should be either:
           ((option-ref cdx 'version)
            (emit-version cdx)
            (exit 0))
+          ((option-ref cdx 'cmdtree)
+           (emit-cmdtree cdx)
+           (exit 0))
           (else cdx))))
 
 ;; First procedure will compile root configuration, hand off to parser to
@@ -248,6 +251,34 @@ do so and emit it to PORT."
             (_ ""))
           "This is free software: you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law."))
+
+(define* (emit-cmdtree codex #:optional (port #t))
+  "Emit the command tree associated with the configuration stored in CODEX to
+PORT, defaulting to stdout."
+  (define (next-string config prefix)
+    (string-append prefix "- " (symbol->string (configuration-name config))
+                   (match (configuration-synopsis config)
+                     ("" "")
+                     (syn (string-append ": " syn)))))
+
+  (format port "Command tree overview of ~a~%~%~a~%"
+          (codex-feature 'name codex)
+          (let ((config (inverted-next-config
+                         (reagents-inverted (codex-reagents codex)))))
+            (let lp ((subcmd config)
+                     (result (next-string config ""))
+                     (prefix "  "))
+              (match (configuration-subcommands subcmd)
+                (() result)
+                (subcmds
+                 (string-join
+                  (cons result
+                        (map (lambda (subcmd)
+                               (lp subcmd
+                                   (next-string subcmd prefix)
+                                   (string-append prefix "  ")))
+                             subcmds))
+                  "\n\n")))))))
 
 
 ;;;;; Helpers
