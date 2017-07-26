@@ -72,7 +72,8 @@
             configuration-license configuration-copyright configuration-author
             configuration-parser configuration-alias
             configuration-generate-help? configuration-generate-usage?
-            configuration-generate-version? configuration-inheritance?
+            configuration-generate-version? configuration-generate-cmdtree?
+            configuration-inheritance?
 
             <reagents>
             reagents reagents?
@@ -295,6 +296,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (generate-help?    configuration-generate-help?    (default #t))
   (generate-usage?   configuration-generate-usage?   (default #t))
   (generate-version? configuration-generate-version? (default #t))
+  (generate-cmdtree? configuration-generate-cmdtree? (default #t))
   (inheritance?      configuration-inheritance?      (default #t)))
 
 (define-record-type <empty-configuration>
@@ -370,7 +372,8 @@ try to deduce from the KEYWORD name.  Else return the character setting."
 
 (define-record-type <metadata>
   (metadata directory version license copyright author parser
-            generate-help? generate-usage? generate-version?)
+            generate-help? generate-usage? generate-version?
+            generate-cmdtree?)
   metadata?
   (directory         metadata-directory)
   (version           metadata-version)
@@ -380,7 +383,8 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (parser            metadata-parser)
   (generate-help?    metadata-generate-help?)
   (generate-usage?   metadata-generate-usage?)
-  (generate-version? metadata-generate-version?))
+  (generate-version? metadata-generate-version?)
+  (generate-cmdtree? metadata-generate-cmdtree?))
 
 (define-record-type <valus>
   (valus keywords arguments)
@@ -520,6 +524,7 @@ CONFIGURATION should be a <configuration>."
        ('generate-help? (metadata-generate-help? metadata))
        ('generate-usage? (metadata-generate-usage? metadata))
        ('generate-version? (metadata-generate-version? metadata))
+       ('generate-cmdtree? (metadata-generate-cmdtree? metadata))
        (n (throw 'codex-metadatum "no matching pattern" n))))))
 
 (define (find-argument key arguments)

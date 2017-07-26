@@ -146,7 +146,8 @@ should be either:
              configuration-parser
              configuration-generate-help?
              configuration-generate-usage?
-             configuration-generate-version?)))
+             configuration-generate-version?
+             configuration-generate-cmdtree?)))
 
 ;; Rules for valus inheritance:
 ;; The set of valus for child := child-valus [+ ancestor-valus [+ ...]]
