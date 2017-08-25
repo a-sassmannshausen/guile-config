@@ -88,28 +88,28 @@
   (make-parser sexp-reader sexp-writer))
 
 ;; FIXME: currently reduced to identity parser
-(define simple-parser
-  (make-parser
-   ;; Reader
-   (lambda (configuration port)
-     '(set-configuration-options
-       configuration
-       (map ((lambda (opts)
-               (lambda (opt)
-                 (match opt
-                   ((name . (? open-option? opt))
-                    (let ((new (assq-ref opts name)))
-                      (if ((openoption-test opt) new)
-                          (cons name (set-openoption-value opt new))
-                          (begin
-                            (format (current-error-port)
-                                    "Configuration predicate failed: ~a [~s]~%"
-                                    name new)
-                            (exit 1)))))
-                   (_ opt))))
-             (stream->list (port->stream port read)))
-            (configuration-options configuration)))
-     configuration)))
+;; (define simple-parser
+;;   (make-parser
+;;    ;; Reader
+;;    (lambda (configuration port)
+;;      '(set-configuration-options
+;;        configuration
+;;        (map ((lambda (opts)
+;;                (lambda (opt)
+;;                  (match opt
+;;                    ((name . (? open-option? opt))
+;;                     (let ((new (assq-ref opts name)))
+;;                       (if ((openoption-test opt) new)
+;;                           (cons name (set-openoption-value opt new))
+;;                           (begin
+;;                             (format (current-error-port)
+;;                                     "Configuration predicate failed: ~a [~s]~%"
+;;                                     name new)
+;;                             (exit 1)))))
+;;                    (_ opt))))
+;;              (stream->list (port->stream port read)))
+;;             (configuration-options configuration)))
+;;      configuration)))
 
 ;;;; Helpers
 
