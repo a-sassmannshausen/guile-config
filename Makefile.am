@@ -58,7 +58,7 @@ AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
 SCM_LOG_COMPILER = $(top_builddir)/test-env $(GUILE)
 AM_SCM_LOG_FLAGS = --no-auto-compile -L "$(top_srcdir)"
 
-info_TEXINFOS = doc/conf.texi
+info_TEXINFOS = doc/config.texi
 dvi: # Don't build dvi docs
 
 EXTRA_DIST +=					\

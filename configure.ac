@@ -1,7 +1,7 @@
 dnl -*- Autoconf -*-
 
 AC_INIT(Guile-Config, 0.2)
-AC_CONFIG_SRCDIR(conf)
+AC_CONFIG_SRCDIR(config)
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([1.12 gnu silent-rules subdir-objects \
  color-tests parallel-tests -Woverride -Wno-portability])
@@ -11,6 +11,16 @@ AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([pre-inst-env], [chmod +x pre-inst-env])
 AC_CONFIG_FILES([test-env], [chmod +x test-env])
 
-GUILE_PROGS([2.0.11])
+dnl Search for 'guile' and 'guild'.  This macro defines
+dnl 'GUILE_EFFECTIVE_VERSION'.
+GUILE_PKG([2.2 2.0])
+GUILE_PROGS
+if test "x$GUILD" = "x"; then
+   AC_MSG_ERROR(['guild' binary not found; please check your guile-2.x installation.])
+fi
+
+if test "x$GUILE_EFFECTIVE_VERSION" = "x2.0"; then
+  PKG_CHECK_MODULES([GUILE], [guile-2.0 >= 2.0.9])
+fi
 
 AC_OUTPUT
