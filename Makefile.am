@@ -47,7 +47,6 @@ SOURCES =					\
   config/getopt-long.scm			\
   config/helpers.scm				\
   config/licenses.scm				\
-  config/parsers.scm				\
   config/parser/sexp.scm			\
   config/records.scm
 
