@@ -1,13 +1,268 @@
-* Guile Config
+-*- mode: org -*-
 
-  Guile Config is a library providing a declarative approach to application
-  configuration specification.  The library provides clean configuration
-  declaration forms, and processors that take care of:
+Guile Config is a library providing a declarative approach to application
+configuration specification.  The library provides clean configuration
+declaration forms, and processors that take care of:
 
-  - Configuration file creation
-  - Configuration file parsing
-  - Command-line parameter parsing using getopt-long
-  - Basic GNU command-line parameter generation (--help, --usage, --version)
-  - Output generation for (compiled from the configuration declaration):
-    + --help and --usage
-    + --version
+- Configuration file creation
+- Configuration file parsing
+- Command-line parameter parsing using getopt-long
+- Basic GNU command-line parameter generation (--help, --usage, --version)
+- Output generation for (compiled from the configuration declaration):
+  + --help and --usage
+  + --version
+
+* Dev Tasks
+
+** DONE Stage 1: Compile Configuration Declarations
+
+*** TODO This involves merging inheritance
+    - for-each sub-command, decide what to do if any given configuration-field
+      is not given: inherit from parent, leave empty or set to default?
+    - for-each sub-command, inject parent's inheritable keywords & arguments
+      if they are set to inheritable & the sub-command is set to inheritable.
+    
+    This process needs to be completed or be transparently completeable when
+    we hand over to `parser-writer` for configuration file writing.
+
+**** Metadata inheritance
+
+     Many metadata fields are inheritable: author, copyright, license… these
+     are all fields that could be overriden in sub-commands, but could just be
+     the same throughout the project.
+
+**** Keyword inheritance
+
+    Most keywords are valid only within the context of their (sub-)command.
+    However, if a keyword is set to be inheritable? by the root command, and
+    is inherited by each (sub-)command, then such a keyword is considered
+    *global*.  Global keywords are relevant to `parsers`: they should be
+    written to a *global* program settings section, so they don't have to be
+    toggled individually in all configuration files for the sub-commands.
+
+    keyword properties:
+    - global: defined in root, inherited everywhere
+    - inherited: defined in parent, inherited locally & inheritable? to
+      children
+    - local: defined locally, but not inheritable?
+
+** TODO Stage 2: Write Configuration Files (output)
+
+** TODO Stage 3: Generate <options> object
+
+** TODO Stage 4: Fold Configuration Files into <options> (input)
+   - We either need to load all configuration files -OR-
+   - establish our subcommand before starting to parse
+   - I believe it is computationally less intensive to simply load all
+     configuration files, than to pre-determine the requested subcommand
+     (the latter requires a first pass of config arguments parsing).
+
+** TODO Stage 5: Fold Commandline Arguments into <options> (input)
+   - First step is determining subcommand
+   - Then we can fold in proper values passed
+
+** TODO Stage 6: rest
+
+* Specification
+
+  Guile Config expects a <configuration> as an input.  <configuration>s are a
+  recursive data type that contains configuration specifications for your
+  application.  The library will parse the specification, create configuration
+  files as needed, parse them, and finally generate a <flatconfig>.
+
+  <flatconfig>s are record types that can be interacted with in a very similar
+  way as the interface provided by `getopt-long`.
+
+** Journey of configuration specification
+
+     configuration    ->          resolved    ->            options
+declared by --^          object with --^          object with --^
+programmer               inheritance resolved     user values merged
+
+* Flow of Control
+
+  +---------------------+
+  | config declaration  |
+  +---------------------+
+            |
+  +-----------------------+   +-----------------------+\
+  | Generate configbag    |-->| create config files   | } OUTPUT
+  +-----------------------+   +-----------------------+/
+            |                            |
+            |       ====================================================================
+            |       |                    |                                             |
+            |       |        +-----------------------+   +-----------------------+     |\
+            |       |        |    Load fileconfigs   |   | Command Line Arguments|     | } INPUT
+            |       |        +-----------------------+   +-----------------------+     |/
+            |       |                    |                           |                 |
+            |       ====================================================================
+            |                            |                           |
+            |                +-----------------------+   +-----------------------+
+            \--------------->| Collapse to flatconfig|<--|  Establish Subcommand |
+                             +-----------------------+   +-----------------------+
+                                     |
+                                     |                         ============================
+                    +------------------------+         Yes     |                OUTPUT    |
+                    | Emit message desired?  |-----------------|------------\             |
+                    +------------------------+                 |            |             |
+                                     |                         |            |             |
+                                     | No                      |            |             |
+                                     |                         |            |             |
+                                     |                         |            |             |
+                                     |                         |            |             |
+                                     |                         |            |             |
+                                     |                         |            |             |
+                                     |                         |            |             |
+                 +---------------------------------+           |    +--------------+      |
+                 | Turn flatconfig -> getoptconfig |           |    | Emit Message |      |
+                 +---------------------------------+           |    +--------------+      |
+                                     |                         |            |             |
+                                     |                         |            |             |
+                       +--------------------------+            |            |             |
+                       |  parse commandline args  |            |            |             |
+                       +--------------------------+            |            |             |
+                                     |                         |            |             |
+                          ========================             |            |             |
+                          |          |           |             |            |             |
+                          |  +----------------+  |             |            |             |
+                          |  |   Run program  |  |             |            |             |
+                          |  +----------------+  |             |            |             |
+                          |          |           |             |            |             |
+                          |          |           |             |            |             |
+                          |    +----------+      |             |      +----------+        |
+                          |    |   Exit   |      |             |      |   Exit   |        |
+                          |    +----------+      |             |      +----------+        |
+                          |                      |             ============================
+                          |     PROGRAM CONTROL  |
+                          ========================
+
+* Objects Overview
+
+  - User Interface (high level):
+    + configuration
+    + secret
+    + switch
+    + setting
+    + argument
+    + license
+    + parser
+
+  - Internal
+    + configbag
+    + flatconfig
+      * metadata
+      * features
+      * values
+    + fileconfig
+
+* User Interface Objects
+
+** <configuration>                  | (guix records)
+
+   - name                           | symbol
+   - synopsis                       | string
+   - description                    | string
+   - keyword-parameters             | list[<secret> <switch> <setting>]
+   - positional-parameters          | list[<argument>]
+   - subcommands                    | list[<configuration>]
+   - configuration-directory        | string
+   - generate-help?                 | boolean[#t]
+   - generate-usage?                | boolean[#t]
+   - generate-version?              | boolean[#t]
+   - version                        | string
+   - license                        | <license>
+   - copyright                      | list[number]
+   - author                         | string
+   - parser                         | <parser>
+   - alias                          | symbol
+   - inheritance                    | boolean[#t]
+
+** <secret>                         | (guix records)
+
+   - name                           | symbol
+   - value                          | mixed
+   - synopsis                       | string
+   - inheritance                    | boolean[#t]
+
+** <setting>                        | (guix records)
+
+   - name                           | symbol
+   - value                          | mixed
+   - test                           | predicate
+   - handler                        | proc(string -> mixed)
+   - character                      | char
+   - synopsis                       | string
+   - description                    | string
+   - example                        | string
+   - optional                       | boolean[#t]
+   - inheritance                    | boolean[#t]
+
+** <switch>                         | (guix records)
+
+   - name                           | symbol
+   - value                          | mixed
+   - test                           | predicate
+   - handler                        | proc(string -> mixed)
+   - character                      | char
+   - synopsis                       | string
+   - description                    | string
+   - example                        | string
+   - optional                       | boolean[#t]
+   - inheritance                    | boolean[#t]
+
+** <argument>                       | (guix records)
+
+   - name                           | symbol
+   - value                          | mixed
+   - test                           | predicate
+   - handler                        | proc(string -> mixed)
+   - synopsis                       | string
+   - description                    | string
+   - example                        | string
+   - optional                       | boolean[#f]
+
+** <license>                        | (srfi srfi-9)
+
+   - id                             | symbol
+   - name                           | string
+   - url                            | uri
+
+** <parser>                         | (srfi srfi-9)
+
+   - id                             | symbol
+   - reader                         | proc(IO[in] -> <fileconfig>)
+   - writer                         | proc(<flatconfig> -> IO[out])
+
+* Internal Objects
+
+** <configbag>                      | (srfi srfi-9)
+   - flatconfigs                    | list[<flatconfig>]
+   - subcommands                    | list[<configid>]
+   - config files                   | list[<configfilepath>]
+
+** <flatconfig>                     | (srfi srfi-9)
+   - <metadata>
+     + configid                     | symbol
+     + synopsis                     | string
+     + description                  | string
+     + configfilepath               | string
+     + license                      | license
+     + copyright                    | list[number]
+     + author                       | string
+     + <versionspec>                                     \
+       * version                    | free                      |  Abandon
+       * versionformat              | predicate                 |  Make version always string
+       * versionprinter             | proc(version->string)     /
+   - <features>
+     + parser                       | <parser>
+     + alias                        | symbol
+     + inheritance                  | boolean
+   - <values>
+     + keyword-parameters           | list[<setting> <switch> <secret>]
+     + positional-parameters        | list[<argument>]
+     + private-parameters           | list[secret]
+       (config internal parameters) |
+
+** <fileconfig>                     | (srfi srfi-9)
+   - configid                       | symbol
+   - keyword-parameters             | list[<setting> <switch> <secret>]

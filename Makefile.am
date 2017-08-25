@@ -42,18 +42,16 @@ moddir=$(prefix)/share/guile/site/2.0
 godir=$(libdir)/guile/2.0/ccache
 
 SOURCES =					\
-  conf.scm					\
-  conf/getopt.scm				\
-  conf/parser.scm				\
-  conf/spec.scm					\
-  conf/monads.scm				\
-  conf/monads/io.scm
+  config.scm					\
+  config/api.scm				\
+  config/getopt-long.scm			\
+  config/helpers.scm				\
+  config/licenses.scm				\
+  config/parsers.scm				\
+  config/parser/sexp.scm			\
+  config/records.scm
 
-TESTS =						\
-  tests/conf.scm				\
-  tests/getopt.scm				\
-  tests/spec.scm				\
-  tests/monads.scm
+TESTS =
 
 TEST_EXTENSIONS = .scm
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
@@ -71,8 +69,6 @@ EXTRA_DIST +=					\
   AUTHORS					\
   NEWS						\
   $(TESTS)
-
-SUBDIRS = po
 
 ACLOCAL_AMFLAGS = -I m4
 
