@@ -58,9 +58,16 @@
 
   (let* ((vls (codex-valus codex))
          (kwds (append (valus-keywords vls) (augment-keywords)))
-         ;; FIXME: dummy should be subcommand-path
-         (gtl (getopt-long (cons "dummy" commandline)
-                           (codex->getopt-spec kwds))))
+         (gtl (getopt-long
+               ;; Here we insert the subcommand path to the command we're
+               ;; executing in commandline, so that getopt-long emits the full
+               ;; path
+               (cons (string-join
+                      (reverse
+                       (map (compose symbol->string car)
+                            (reagents-inverted (codex-reagents codex)))))
+                     commandline)
+               (codex->getopt-spec kwds))))
     (set-codex-valus codex 
                      (valus (map (lambda (kwd)
                                    (set-keyword-default
