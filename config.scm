@@ -79,7 +79,7 @@ should be either:
 ;; read will always return the natural codex for the given subcommand.
 (define (getopt-config commandline configuration)
   (define (read reader configuration reagents)
-    (reader configuration reagents))
+    (reader configuration))
   (define (write writer configuration reagents)
     (writer configuration reagents))
 
