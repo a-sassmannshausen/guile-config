@@ -63,9 +63,10 @@
                ;; executing in commandline, so that getopt-long emits the full
                ;; path
                (cons (string-join
-                      (reverse
-                       (map (compose symbol->string car)
-                            (reagents-inverted (codex-reagents codex)))))
+                      (cons "error:"
+                            (reverse
+                             (map (compose symbol->string car)
+                                  (reagents-inverted (codex-reagents codex))))))
                      commandline)
                (codex->getopt-spec kwds))))
     (set-codex-valus codex 
