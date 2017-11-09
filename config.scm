@@ -105,17 +105,23 @@ should be either:
     ;; The writer should always process the entire configuration tree.
     (write (parser-writer (codex-metadatum 'parser cdx)) configuration
            reagents)
-    (call-with-values
-        (lambda ()
-          (parallel
-           ;; Merge configuration file through parser into cdx
-           (read (parser-reader (codex-metadatum 'parser cdx)) cdx reagents)
-           ;; merge commandline into cdx
-           (read-commandline (reagents-commandline reagents) cdx)))
-      ;; codex-merge: combine the two above, with commandline-cdx precedence.
-      ;; FIXME
-      (lambda (configfile-cdx commandline-cdx)
-        commandline-cdx))))
+    (catch 'quit
+      (lambda _
+        (call-with-values
+            (lambda ()
+              (parallel
+               ;; Merge configuration file through parser into cdx
+               (read (parser-reader (codex-metadatum 'parser cdx)) cdx reagents)
+               ;; merge commandline into cdx
+               (read-commandline (reagents-commandline reagents) cdx)))
+          ;; codex-merge: combine the two above, with commandline-cdx precedence.
+          ;; FIXME
+          (lambda (configfile-cdx commandline-cdx)
+            commandline-cdx)))
+      (lambda (k vals)
+        (when (configuration-generate-help? configuration)
+          (emit-help cdx))
+        (exit 1)))))
 
 
 ;;;;; Helpers
