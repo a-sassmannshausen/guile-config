@@ -112,6 +112,7 @@
             subcommand-path
 
             codex-metadatum codex-feature
+            full-command
             find-keyword find-argument
             ))
 
@@ -502,6 +503,11 @@ CONFIGURATION should be a <configuration>."
     (() #f)
     ((config) config)
     (_ (throw 'find-subcommand "Should not have happened."))))
+
+(define (full-command codex)
+  "Return the breadcrumb to the subcommand in CODEX as list form."
+  (reverse (map (compose symbol->string car)
+                (reagents-inverted (codex-reagents codex)))))
 
 (define (codex-feature key codex)
   "Return the feature identified by KEY."

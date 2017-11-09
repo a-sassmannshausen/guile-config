@@ -62,11 +62,7 @@
                ;; Here we insert the subcommand path to the command we're
                ;; executing in commandline, so that getopt-long emits the full
                ;; path
-               (cons (string-join
-                      (cons "error:"
-                            (reverse
-                             (map (compose symbol->string car)
-                                  (reagents-inverted (codex-reagents codex))))))
+               (cons (string-join (cons "error:" (full-command codex)))
                      commandline)
                (codex->getopt-spec kwds))))
     (set-codex-valus codex 
