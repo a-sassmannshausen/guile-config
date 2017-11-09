@@ -352,6 +352,11 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (valus    codex-valus set-codex-valus)
   (reagents codex-reagents))
 
+(set-record-type-printer!
+ <codex>
+ (lambda (codex port)
+   (format port "#<codex features metadata valus reagents>")))
+
 (define-record-type <reagents>
   (reagents inverted commandline raw configuration)
   reagents?
