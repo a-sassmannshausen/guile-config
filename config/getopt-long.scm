@@ -44,6 +44,7 @@
   ;; $script: no such option: --$option
   ;; $script: option must be specified with argument: --$option
   (define (augment-keywords)
+    "Return additional switches for help, usage, version, if requested."
     (filter-map (match-lambda
                   ((id chr #t)
                    (switch
