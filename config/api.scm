@@ -102,6 +102,7 @@
             valus-keywords valus-arguments
 
             keyword-name
+            keyword-handler
             keyword-character
             keyword-default
             set-keyword-default
@@ -210,6 +211,14 @@ try to deduce from the KEYWORD name.  Else return the character setting."
     (($ <switch> name) name)
     (($ <setting> name) name)
     (n (throw 'keyword-name "no matching pattern" n))))
+
+(define (keyword-handler keyword)
+  "Return KEYWORD handler or throw error."
+  (match keyword
+    (($ <secret>) (throw 'keyword-handler "SECRET's don't have handlers"))
+    (($ <switch>) (switch-handler keyword))
+    (($ <setting>) (setting-handler keyword))
+    (n (throw 'keyword-handler "no matching pattern" n))))
 
 (define (keyword-default keyword)
   "Return KEYWORD default."
