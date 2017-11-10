@@ -70,8 +70,9 @@
                      (valus (map (lambda (kwd)
                                    (set-keyword-default
                                     kwd
-                                    (option-ref gtl (keyword-name kwd)
-                                                (keyword-default kwd))))
+                                    ((keyword-handler kwd)
+                                     (option-ref gtl (keyword-name kwd)
+                                                 (keyword-default kwd)))))
                                  kwds)
                             (valus-arguments vls)))))
 
