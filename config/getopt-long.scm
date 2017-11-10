@@ -83,8 +83,9 @@
     (lambda (kwd done)
       (let ((character (keyword-character kwd)))
         (match kwd
-          (($ <switch> name ($ <empty>) test handler _ _ _ _ optional)
-           (cons (getopt-spec name test handler character optional #t) done))
+          (($ <switch> name ($ <empty>) test handler _ _ _ _ #f)
+           ;; A switch is only mandatory if optional is #f
+           (cons (getopt-spec name test handler character #f #t) done))
           (($ <switch> name _ test handler _ _ _ _ optional)
            (cons (getopt-spec name test handler character optional #f) done))
           (($ <setting> name ($ <empty>) test handler _ _ _ _ optional)
