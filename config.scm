@@ -245,15 +245,13 @@ so and emit it to PORT."
   "Traverse the config in CODEX, building a GNU-style version message as we
 do so and emit it to PORT."
   (format port "~a~%~a~a~a~%"
-          (match (list (codex-feature 'name codex)
-                       (codex-metadatum 'version codex))
-            ((name ($ <empty>)) (symbol->string name))
-            ((name (? string? version))
-             (string-append (symbol->string name) " " version))
-            ((name (? number? version))
-             (string-append (symbol->string name)
-                            (number->string version)))
-            (n (throw 'emit-version "no matching pattern" n)))
+          (string-join
+           (append (full-command codex)
+                   (match (codex-metadatum 'version codex)
+                     (($ <empty>) '())
+                     ((? string? version) `(,version))
+                     ((? number? version) `(,(number->string version)))
+                     (n (throw 'emit-version "no matching pattern" n)))))
           (match (map (cut codex-metadatum <> codex) '(copyright author))
             ((or (($ <empty>) _) (_ ($ <empty>))) "")
             ((years author)
