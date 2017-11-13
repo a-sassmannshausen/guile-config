@@ -43,25 +43,25 @@
 
             <secret>
             secret secret?
-            secret-name secret-default secret-synopsis secret-inheritable?
+            secret-name secret-default secret-synopsis
 
             <switch>
             switch switch?
             switch-name switch-default switch-test switch-handler
             switch-character switch-synopsis switch-description switch-example
-            switch-optional? switch-inheritable?
+            switch-optional?
 
             <setting>
             setting setting?
             setting-name setting-default setting-test setting-handler
             setting-character setting-synopsis setting-description
-            setting-example setting-optional? setting-inheritable?
+            setting-example setting-optional?
 
             <argument>
             argument argument?
             argument-name argument-default argument-test argument-test
             argument-handler argument-synopsis argument-description
-            argument-example argument-optional? argument-inheritable?
+            argument-example argument-optional?
 
             <configuration>
             configuration configuration?
@@ -73,7 +73,7 @@
             configuration-parser configuration-alias
             configuration-generate-help? configuration-generate-usage?
             configuration-generate-version? configuration-generate-cmdtree?
-            configuration-inheritance?
+            configuration-inheritance? configuration-wanted
 
             <reagents>
             reagents reagents?
@@ -106,7 +106,6 @@
             keyword-character
             keyword-default
             set-keyword-default
-            inheritable?
             inverted-next-name inverted-next-config
 
             subcommand-reagents
@@ -141,8 +140,7 @@
   secret?
   (name         secret-name         (default 'secret))
   (default      secret-default      (default (empty)))
-  (synopsis     secret-synopsis     (default ""))
-  (inheritable? secret-inheritable? (default #t)))
+  (synopsis     secret-synopsis     (default "")))
 
 ;;;;; Switches & Settings
 
@@ -164,8 +162,7 @@
   (synopsis     switch-synopsis     (default ""))
   (description  switch-description  (default ""))
   (example      switch-example      (default ""))
-  (optional?    switch-optional?    (default #t))
-  (inheritable? switch-inheritable? (default #t)))
+  (optional?    switch-optional?    (default #t)))
 
 ;;;;;; Settings
 
@@ -182,8 +179,7 @@
   (synopsis     setting-synopsis     (default ""))
   (description  setting-description  (default ""))
   (example      setting-example      (default ""))
-  (optional?    setting-optional?    (default #f))
-  (inheritable? setting-inheritable? (default #t)))
+  (optional?    setting-optional?    (default #f)))
 
 ;;;;; Secret, Switch & Setting Helpers: The Keyword Abstraction
 
@@ -236,14 +232,6 @@ try to deduce from the KEYWORD name.  Else return the character setting."
     (($ <setting>) (setting (inherit keyword) (default value)))
     (n (throw 'set-keyword-default "no matching pattern" n))))
 
-(define (keyword-inheritable? keyword)
-  "Return KEYWORD inheritable? switch."
-  (match keyword
-    (($ <secret>) (secret-inheritable? keyword))
-    (($ <switch>) (switch-inheritable? keyword))
-    (($ <setting>) (setting-inheritable? keyword))
-    (n (throw 'keyword-inheritable? "no matching pattern" n))))
-
 ;;;; Arguments
 
 ;; Arguments are positional arguments to command line invocations, e.g.
@@ -260,17 +248,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (synopsis     argument-synopsis     (default ""))
   (description  argument-description  (default ""))
   (example      argument-example      (default ""))
-  (optional?    argument-optional?    (default #t))
-  (inheritable? argument-inheritable? (default #t)))
-
-(define (inheritable? obj)
-  "Return #t if OBJ is inheritable."
-  (match obj
-    (($ <secret>) (secret-inheritable? obj))
-    (($ <switch>) (switch-inheritable? obj))
-    (($ <setting>) (setting-inheritable? obj))
-    (($ <argument>) (argument-inheritable? obj))
-    (n (throw 'inheritable? "no matching pattern" n))))
+  (optional?    argument-optional?    (default #t)))
 
 ;;;; Configurations
 
@@ -293,6 +271,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (name              configuration-name)
   (synopsis          configuration-synopsis          (default ""))
   (description       configuration-description       (default ""))
+  (wanted            configuration-wanted            (default '()))
   (keywords          configuration-keywords          (default '()))
   (arguments         configuration-arguments         (default '()))
   (subcommands       configuration-subcommands       (default '()))

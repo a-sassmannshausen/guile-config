@@ -163,36 +163,46 @@ should be either:
              configuration-generate-cmdtree?)))
 
 ;; Rules for valus inheritance:
-;; The set of valus for child := child-valus [+ ancestor-valus [+ ...]]
-;; Where each ancestor value is only inherited if it is set to be inheritable.
-;; We stop traversing ancestors the moment one of them is set to be
-;; non-inheritance at the configuration level.
+;; The set of valus for child := child-valus [+ ancestor valus wanted]
+;; However, as we are traversing parent *configurations*, inheritance has not
+;; percolated through them.  We must recurse through ancestors until we have
+;; all we wanted.
 (define (valus-fetch inverted)
   "Return the valus, with inheritance resolved, for INVERTED."
-  (map (lambda (getter)
-         ;; Delay as we may never need some of the fields we generate here.
-         (let* ((actual (inverted-next-config inverted))
-                (ancestors (cdr inverted))
-                (result (getter actual)))
-           (if (null? ancestors)
-               result                 ; Done traversing, return kw or args.
-               (let lp ((current-ancestor (inverted-next-config ancestors))
-                        (rest (cdr ancestors))
-                        (result result))
-                 (if (not (configuration-inheritance? current-ancestor))
-                     result           ; Exit: ancestor inheritance disabled
-                     (let ((result (fold (lambda (candidate result)
-                                           (if (inheritable? candidate)
-                                               (cons candidate result)
-                                               result))
-                                         result
-                                         (getter current-ancestor))))
-                       (if (null? rest)
-                           result
-                           (lp (inverted-next-config rest)
-                               (cdr rest)
-                               result))))))))
-       (list configuration-keywords configuration-arguments)))
+  (let ((self (inverted-next-config inverted)))
+    (define (fetch type-of-wealth self-proc proc)
+      (let lp ((ancestors (cdr inverted))
+               (wealth (self-proc self))
+               (wanted (or (assoc-ref (configuration-wanted self)
+                                      type-of-wealth)
+                           '())))
+        (cond ((null? wanted) wealth)
+              ((and (null? ancestors) (not (null? wanted)))
+               ;; Reached end of ancestors but still wanting
+               (throw 'valus-fetch 'still-wanting wanted))
+              ;; Normal case: fetch wanted, then recurse
+              (else
+               (let* ((parent-wealth (proc (inverted-next-config ancestors)))
+                      (new-wealth (fold (lambda (n p)
+                                          (match (assoc-ref parent-wealth n)
+                                            ;; Not found, still wanted
+                                            (#f `(,(first p)
+                                                  ,(cons n (second p))))
+                                            ;; In parent, add to wealth
+                                            (e `(,(cons e (first p))
+                                                 ,(second p)))))
+                                        '(() ())
+                                        wanted)))
+                 (lp (cdr ancestors)
+                     (append (first new-wealth) wealth)
+                     (second new-wealth)))))))
+    (list
+     (fetch 'keywords configuration-keywords
+            (compose (cute map (lambda (n) (cons (keyword-name n) n)) <>)
+                     configuration-keywords))
+     (fetch 'arguments configuration-arguments
+            (compose (cute map (lambda (n) (cons (keyword-name n) n)) <>)
+                     configuration-arguments)))))
 
 
 ;;;; Emitters
