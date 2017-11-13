@@ -603,6 +603,6 @@ CONFIGURATION should be a <configuration>."
 ;; switches (as no configuration files are available to set defaults)
 
 (define identity-parser
-  (make-parser (lambda (codex reagents) codex)
-               (lambda (configuration reagents)
+  (make-parser (lambda (configuration) #t)
+               (lambda* (configuration #:optional port)
                  'fake-side-effect)))
