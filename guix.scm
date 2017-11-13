@@ -29,7 +29,7 @@
 ;;
 ;; In the new shell, run:
 ;;
-;;  ./bootstrap && ./configure && make check
+;;  autoreconf -vif && ./configure && make check
 ;;
 ;;; Code:
 
@@ -58,12 +58,9 @@
      ("pkg-config" ,pkg-config)
      ("texinfo" ,texinfo)))
   (inputs
-   `(("guile" ,guile-2.0)
-     ("perl" ,perl)
+   `(("guile" ,guile-2.2)
      ("git" ,git)))
   (synopsis "Guile application configuration parsing library.")
   (description "Guile-config is a library enhancing (ice-9 getopt-long).")
   (home-page "https://gitlab.com/guile-projects/guile-config")
   (license gpl3+))
-
-;;; guix.scm ends here.

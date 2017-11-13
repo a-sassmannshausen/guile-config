@@ -38,8 +38,8 @@ SUFFIXES = .scm .go
 .scm.go:
 	$(AM_V_GEN)$(top_builddir)/pre-inst-env $(GUILE_TOOLS) compile $(GUILE_WARNINGS) -o "$@" "$<"
 
-moddir=$(prefix)/share/guile/site/2.0
-godir=$(libdir)/guile/2.0/ccache
+moddir=$(prefix)/share/guile/site/2.2
+godir=$(libdir)/guile/2.2/ccache
 
 SOURCES =					\
   config.scm					\
