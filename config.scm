@@ -209,31 +209,26 @@ so and emit it to PORT."
   (define (filter-keywords keywords)
     (filter (lambda (x) (or (switch? x) (setting? x))) keywords))
 
-  (let ((reagents (codex-reagents codex))
-        (valus    (codex-valus codex))
-        (usage-string (string-append "Usage" ": "))
-        (options-string (string-append "Options" ":"))
-        (subcommands-string (string-append "Subcommands" ":")))
-    (let ((keywords (valus-keywords valus)))
-      ;; Short Help
-      (let ((full-cmd-name (string-join
-                            (map symbol->string
-                                 (subcommand-path
-                                  (reagents-raw reagents)
-                                  (reagents-configuration reagents))))))
-        (format port "~a~a ~a~%" usage-string full-cmd-name
-                (sort-keywords (filter-keywords keywords)
-                               (+ (string-length usage-string)
-                                  (string-length full-cmd-name)
-                                  1)
-                               (valus-arguments valus))))
-      ;; Detailed Help
-      (format port "~%~a~%~a~%" options-string
-              (sort-detailed-keywords (filter-keywords keywords))))
+  (let* ((valus    (codex-valus codex))
+         (keywords (valus-keywords valus))
+         (usage-string (string-append "Usage" ": "))
+         (name (string-join (full-command codex))))
+    ;; Short Help
+    (format port "~a~a ~a~%" usage-string name
+            (sort-keywords (filter-keywords keywords)
+                           (+ (string-length usage-string)
+                              (string-length name)
+                              1)
+                           (valus-arguments valus)))
+    ;; Detailed Help
+    (format port "~%~a~%~a~%" (string-append "Options" ":")
+            (sort-detailed-keywords (filter-keywords keywords)))
     ;; Subcommand listing
     (match (sort-subcommands (codex-feature 'subcommands codex))
       ("" #f)
-      (subcommands (format port "~%~a~%~a~%" subcommands-string subcommands))
+      (subcommands
+       (format port "~%~a~%~a~%" (string-append "Subcommands" ":")
+               subcommands))
       (n (throw 'emit-help "no matching pattern" n)))
     ;; Description
     (match (codex-feature 'description codex)
