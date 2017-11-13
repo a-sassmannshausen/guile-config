@@ -32,7 +32,11 @@
   #:use-module (ice-9 threads)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-  #:export (getopt-config-auto getopt-config option-ref))
+  #:export (getopt-config-auto
+            getopt-config
+            option-ref
+
+            emit-help emit-version))
 
 ;;;; UI
 
