@@ -101,8 +101,7 @@ should be either:
                                           configuration-synopsis
                                           configuration-description
                                           configuration-alias
-                                          configuration-subcommands
-                                          configuration-inheritance?)))
+                                          configuration-subcommands)))
                (apply metadata (metadata-fetch (reagents-inverted reagents)))
                (apply valus (valus-fetch (reagents-inverted reagents)))
                reagents)))
@@ -142,10 +141,7 @@ should be either:
                     (rest (cdr inverted)))
              (match (getter current-entry)
                ((or (? not value) (? empty? value))
-                (if (or (null? rest)
-                        (not (configuration-inheritance? current-entry))
-                        (not (configuration-inheritance?
-                              (inverted-next-config rest))))
+                (if (null? rest)
                     value
                     (lp (inverted-next-config rest)
                         (cdr rest))))

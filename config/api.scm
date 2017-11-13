@@ -73,7 +73,7 @@
             configuration-parser configuration-alias
             configuration-generate-help? configuration-generate-usage?
             configuration-generate-version? configuration-generate-cmdtree?
-            configuration-inheritance? configuration-wanted
+            configuration-wanted
 
             <reagents>
             reagents reagents?
@@ -88,7 +88,7 @@
             <features>
             features features?
             features-name features-synopsis features-description
-            features-alias features-subcommands features-inheritance?
+            features-alias features-subcommands
 
             <metadata>
             metadata metadata?
@@ -285,8 +285,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (generate-help?    configuration-generate-help?    (default #t))
   (generate-usage?   configuration-generate-usage?   (default #t))
   (generate-version? configuration-generate-version? (default #t))
-  (generate-cmdtree? configuration-generate-cmdtree? (default #t))
-  (inheritance?      configuration-inheritance?      (default #t)))
+  (generate-cmdtree? configuration-generate-cmdtree? (default #t)))
 
 (define-record-type <empty-configuration>
   (empty-configuration) empty-configuration?)
@@ -310,8 +309,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
 ;;   + description
 ;;   + alias
 ;;   + subcommands
-;;   + inheritance?
-;; - fields that can be inherited are 'metadata':
+;; - fields that will be inherited, if defined, are 'metadata':
 ;;   + directory
 ;;   + version
 ;;   + license
@@ -321,7 +319,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
 ;;   + generate-help?
 ;;   + generate-usage?
 ;;   + generate-version?
-;; - keywords & arguments are 'valus':
+;; - keywords & arguments are 'valus', they are inherited if wanted:
 ;;   + keywords
 ;;   + arguments
 ;; - reagents are data for optimization & documentation purposes:
@@ -355,14 +353,13 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (configuration reagents-configuration))
 
 (define-record-type <features>
-  (features name synopsis description alias subcommands inheritance?)
+  (features name synopsis description alias subcommands)
   features?
   (name         features-name)
   (synopsis     features-synopsis)
   (description  features-description)
   (alias        features-alias)
-  (subcommands  features-subcommands)
-  (inheritance? features-inheritance?))
+  (subcommands  features-subcommands))
 
 (define-record-type <metadata>
   (metadata directory version license copyright author parser
@@ -506,7 +503,6 @@ CONFIGURATION should be a <configuration>."
       ('description (features-description features))
       ('alias (features-alias features))
       ('subcommands (features-subcommands features))
-      ('inheritance? (features-inheritance? features))
       (n (throw 'codex-feature "no matching pattern" n)))))
 
 (define (codex-metadatum key codex)
