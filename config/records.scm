@@ -22,12 +22,7 @@
   #:use-module (srfi srfi-9)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
-  #:use-module (ice-9 regex)
-  #:use-module (ice-9 rdelim)
-  #:export (define-record-type*
-            alist->record
-            object->fields
-            recutils->alist))
+  #:export (define-record-type*))
 
 ;;; Commentary:
 ;;;
@@ -307,74 +302,3 @@ inherited."
                                            #:delayed #,delayed
                                            #:innate #,innate
                                            #:defaults #,defaults))))))))
-
-(define* (alist->record alist make keys
-                        #:optional (multiple-value-keys '()))
-  "Apply MAKE to the values associated with KEYS in ALIST.  Items in KEYS that
-are also in MULTIPLE-VALUE-KEYS are considered to occur possibly multiple
-times in ALIST, and thus their value is a list."
-  (let ((args (map (lambda (key)
-                     (if (member key multiple-value-keys)
-                         (filter-map (match-lambda
-                                      ((k . v)
-                                       (and (equal? k key) v)))
-                                     alist)
-                         (assoc-ref alist key)))
-                   keys)))
-    (apply make args)))
-
-(define (object->fields object fields port)
-  "Write OBJECT (typically a record) as a series of recutils-style fields to
-PORT, according to FIELDS.  FIELDS must be a list of field name/getter pairs."
-  (let loop ((fields fields))
-    (match fields
-      (()
-       object)
-      (((field . get) rest ...)
-       (format port "~a: ~a~%" field (get object))
-       (loop rest)))))
-
-(define %recutils-field-charset
-  ;; Valid characters starting a recutils field.
-  ;; info "(recutils) Fields"
-  (char-set-union char-set:upper-case
-                  char-set:lower-case
-                  (char-set #\%)))
-
-(define (recutils->alist port)
-  "Read a recutils-style record from PORT and return it as a list of key/value
-pairs.  Stop upon an empty line (after consuming it) or EOF."
-  (let loop ((line   (read-line port))
-             (result '()))
-    (cond ((eof-object? line)
-           (reverse result))
-          ((string-null? line)
-           (if (null? result)
-               (loop (read-line port) result)     ; leading space: ignore it
-               (reverse result)))                 ; end-of-record marker
-          (else
-           ;; Now check the first character of LINE, since that's what the
-           ;; recutils manual says is enough.
-           (let ((first (string-ref line 0)))
-             (cond
-              ((char-set-contains? %recutils-field-charset first)
-               (let* ((colon (string-index line #\:))
-                      (field (string-take line colon))
-                      (value (string-trim (string-drop line (+ 1 colon)))))
-                 (loop (read-line port)
-                       (alist-cons field value result))))
-              ((eqv? first #\#)                   ;info "(recutils) Comments"
-               (loop (read-line port) result))
-              ((eqv? first #\+)                   ;info "(recutils) Fields"
-               (let ((new-line (if (string-prefix? "+ " line)
-                                   (string-drop line 2)
-                                   (string-drop line 1))))
-                (match result
-                  (((field . value) rest ...)
-                   (loop (read-line port)
-                         `((,field . ,(string-append value "\n" new-line))
-                           ,@rest))))))
-              (else
-               (error "unmatched line" line))))))))
-
-;;; records.scm ends here

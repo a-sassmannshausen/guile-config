@@ -106,10 +106,9 @@
             keyword-character
             keyword-default
             set-keyword-default
-            inverted-next-name inverted-next-config
+            inverted-next-config
 
             subcommand-reagents
-            subcommand-path
 
             codex-metadatum codex-feature
             full-command
@@ -392,38 +391,11 @@ try to deduce from the KEYWORD name.  Else return the character setting."
 ;; This datastructure makes inheritance resolution trivial as we simply walk
 ;; the list, following the inheritance protocol.
 
-(define (inverted-next-name inverted)
-  "Return the name of the next entry in the list of INVERTED."
-  (caar inverted))
-
 (define (inverted-next-config inverted)
   "Return the configuration of the next entry in the list of INVERTED."
   (cdar inverted))
 
 ;;;; Subcommand handlers
-
-(define (subcommand-inverted commandline configuration)
-  "Return a list of tuples, consisting of (name . configuration), starting
-with the lowest subcommand in CONFIGURATION selected by COMMANDLINE."
-  ;; This procedure simplifies inheritance walks dramatically, as we no longer
-  ;; have to walk the trees.  We simply check each field in the first
-  ;; configuration, determine which need inheritance, and then take that
-  ;; inherited value from the next highest available configuration.
-  (subcommand-parse (lambda (current next name rest inverted)
-                      (cons (configuration-tuple (or next current))
-                            inverted))
-                    commandline
-                    configuration))
-
-(define (subcommand-path commandline configuration)
-  "Return a breadcrumb trail for the subcommands in COMMANDLINE pointing the
-way through CONFIGURATION, to the lowest subcommand."
-  (reverse
-   (subcommand-parse (lambda (current next name rest path)
-                       (cons (configuration-name (or next current))
-                             path))
-                     commandline
-                     configuration)))
 
 (define (subcommand-reagents commandline configuration)
   "Return the reagents object requested by COMMANDLINE over CONFIGURATION.
@@ -547,7 +519,6 @@ CONFIGURATION should be a <configuration>."
             #f
             keywords))
     (lambda (k v) v)))
-
 
 
 ;;;; Configuration Parsers

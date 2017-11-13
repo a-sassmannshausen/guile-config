@@ -21,9 +21,6 @@
 ;;; Boston, MA  02111-1307,  USA       gnu@gnu.org
 
 (define-module (config)
-  ;; Re-export api creators
-  ;; Re-export parsers
-  ;; Re-export licenses
   #:use-module (config api)
   #:use-module (config getopt-long)
   #:use-module (config helpers)
@@ -41,12 +38,11 @@
 ;;;; UI
 
 (define* (option-ref codex key #:optional default)
-  "Return the value for KEY in GETOPT, or DEFAULT if it cannot be found. KEY
+  "Return the value for KEY in CODEX, or DEFAULT if it cannot be found. KEY
 should be either:
-- a symbol, to retrieve the respective option in the GETOPT,
-- a list of exactly one symbol, to retrieve the respective free parameter from
-  the list of free parameters provided on the command line.
-- '(), to retrieve all free parameters, without additional processing."
+- a symbol, to retrieve the respective keyword in CODEX,
+- a list of exactly one symbol, to retrieve the respective argument in CODEX.
+- '(), to retrieve all arguments, without additional processing."
   (let ((valus (codex-valus codex)))
     (match key
       (() (valus-arguments valus))
@@ -55,7 +51,8 @@ should be either:
       (n (throw 'option-ref "no matching pattern" n)))))
 
 (define* (getopt-config-auto commandline configuration)
-  ;; Resolve --help, --usage, --version
+  "Return a <codex>, generated from CONFIGURATION applied to COMMANDLINE only
+if no help, usage, version or cmdtree was requested."
   (let ((cdx (getopt-config commandline configuration)))
     (cond ((or (option-ref cdx 'help) (option-ref cdx 'usage))
            (emit-help cdx)
@@ -82,6 +79,9 @@ should be either:
 ;; For now, parser is a stub: write will return successful IO side-effect,
 ;; read will always return the natural codex for the given subcommand.
 (define (getopt-config commandline configuration)
+  "Return a <codex>, generated from CONFIGURATION applied to COMMANDLINE.
+
+Values from this codex can be extracted using `OPTION-REF'."
   (define (read reader configuration reagents)
     (reader configuration))
   (define (write writer configuration reagents)
@@ -117,8 +117,7 @@ should be either:
                (read (parser-reader (codex-metadatum 'parser cdx)) cdx reagents)
                ;; merge commandline into cdx
                (read-commandline (reagents-commandline reagents) cdx)))
-          ;; codex-merge: combine the two above, with commandline-cdx precedence.
-          ;; FIXME
+          ;; FIXME: codex-merge: combine the two above, with commandline-cdx precedence.
           (lambda (configfile-cdx commandline-cdx)
             commandline-cdx)))
       (lambda (k vals)
