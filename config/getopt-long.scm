@@ -59,6 +59,7 @@
 
   (let* ((vls (codex-valus codex))
          (kwds (append (valus-keywords vls) (augment-keywords)))
+         (args (valus-arguments vls))
          (gtl (getopt-long
                ;; Here we insert the subcommand path to the command we're
                ;; executing in commandline, so that getopt-long emits the full
@@ -66,15 +67,33 @@
                (cons (string-join (cons "error:" (full-command codex)))
                      commandline)
                (codex->getopt-spec kwds))))
-    (set-codex-valus codex 
-                     (valus (map (lambda (kwd)
-                                   (set-keyword-default
-                                    kwd
-                                    ((keyword-handler kwd)
-                                     (option-ref gtl (keyword-name kwd)
-                                                 (keyword-default kwd)))))
-                                 kwds)
-                            (valus-arguments vls)))))
+    (set-codex-valus
+     codex
+     (valus
+      (map (lambda (kwd)
+             (set-keyword-default kwd ((keyword-handler kwd)
+                                       (option-ref gtl (keyword-name kwd)
+                                                   (keyword-default kwd)))))
+           kwds)
+      ;; Arguments can't be retrieved by name with getopt-long.  Instead,
+      ;; fetch all args, then handle them ourselves.
+      (let lp ((args args)
+               ;; Drop the command name from cmds
+               (cmds (cdr (option-ref gtl '() '())))
+               (result '()))
+        (cond ((null? args)
+               ;; Processed all args, -> done.
+               (reverse result))
+              ((null? cmds)
+               ;; We're out of cmdline args, -> defaults for rest
+               (append (reverse result) args))
+              (else
+               (lp (cdr args)
+                   (cdr cmds)
+                   (cons (set-argument-default
+                          (first args)
+                          ((argument-handler (first args)) (first cmds)))
+                         result)))))))))
 
 (define (codex->getopt-spec keywords)
   "Return the getopt-long option-spec corresponding to the <setting> and

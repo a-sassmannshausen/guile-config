@@ -106,6 +106,7 @@
             keyword-character
             keyword-default
             set-keyword-default
+            set-argument-default
             inverted-next-config
 
             subcommand-reagents
@@ -248,6 +249,10 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (description  argument-description  (default ""))
   (example      argument-example      (default ""))
   (optional?    argument-optional?    (default #t)))
+
+(define (set-argument-default arg value)
+  "Return a new version of argument ARG, with its default replaced by VALUE."
+  (argument (inherit arg) (default value)))
 
 ;;;; Configurations
 
@@ -501,7 +506,7 @@ CONFIGURATION should be a <configuration>."
       (fold (lambda (candidate result)
               (match candidate
                 ((? (compose (cut eq? key <>) argument-name) jackpot)
-                 (throw 'found jackpot))
+                 (throw 'found (argument-default jackpot)))
                 (_ result)))
             #f
             arguments))
