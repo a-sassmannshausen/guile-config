@@ -196,7 +196,7 @@ Values from this codex can be extracted using `OPTION-REF'."
             (compose (cute map (lambda (n) (cons (keyword-name n) n)) <>)
                      configuration-keywords))
      (fetch 'arguments configuration-arguments
-            (compose (cute map (lambda (n) (cons (keyword-name n) n)) <>)
+            (compose (cute map (lambda (n) (cons (argument-name n) n)) <>)
                      configuration-arguments)))))
 
 

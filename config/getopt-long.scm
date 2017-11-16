@@ -78,8 +78,7 @@
       ;; Arguments can't be retrieved by name with getopt-long.  Instead,
       ;; fetch all args, then handle them ourselves.
       (let lp ((args args)
-               ;; Drop the command name from cmds
-               (cmds (cdr (option-ref gtl '() '())))
+               (cmds (option-ref gtl '() '()))
                (result '()))
         (cond ((null? args)
                ;; Processed all args, -> done.

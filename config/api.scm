@@ -432,7 +432,8 @@ the rest of the commandline and the result thus far.
 COMMANDLINE is the commandline as passed to the program.
 
 CONFIGURATION should be a <configuration>."
-  (let ((base (glue configuration #f "" commandline '())))
+  ;; strip script name from commandline
+  (let ((base (glue configuration #f "" (cdr commandline) '())))
     (match commandline
       ((scriptname . ()) base)
       ((scriptname . (name . rest))
