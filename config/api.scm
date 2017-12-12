@@ -37,9 +37,9 @@
 
             <parser>
             make-parser parser?
-            parser-reader parser-writer
+            parser-file parser-read parser-write parser-write-complete
 
-            simple-parser identity-parser
+            identity-parser
 
             <secret>
             secret secret?
@@ -100,6 +100,14 @@
             <valus>
             valus valus?
             valus-keywords valus-arguments
+
+            <path>
+            path path?
+            path-given path-eager?
+
+            in-cwd in-home
+
+            n-configuration-files? single-configuration-file?
 
             keyword-name
             keyword-handler
@@ -279,6 +287,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (keywords          configuration-keywords          (default '()))
   (arguments         configuration-arguments         (default '()))
   (subcommands       configuration-subcommands       (default '()))
+  ;; Configuration-directory ::= <path> || (<path> ...)
   (directory         configuration-directory         (default (empty)))
   (version           configuration-version           (default (empty)))
   (license           configuration-license           (default (empty)))
@@ -298,6 +307,27 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   "Return an assoc entry of CONFIGURATION name and CONFIGURATION
 (i.e. '($config-name . $config))"
   (cons (configuration-name configuration) configuration))
+
+(define-record-type* <path>
+  path make-path
+  path?
+  (given  path-given)
+  (eager? path-eager? (default #t)))
+
+(define* (in-cwd #:optional (location "") eager?)
+  (path (given (string-append (getcwd) file-name-separator-string location))
+        (eager? eager?)))
+
+(define* (in-home location #:optional wait?)
+  (path (given (string-append (getenv "HOME") file-name-separator-string
+                              location))
+        (eager? (not wait?))))
+
+(define (n-configuration-files? conf-dir)
+  (list? conf-dir))
+
+(define (single-configuration-file? conf-dir)
+  (negate n-configuration-files?))
 
 ;;;; Internal API
 
@@ -537,10 +567,28 @@ CONFIGURATION should be a <configuration>."
 ;;; <configuration>.
 
 (define-record-type <parser>
-  (make-parser reader writer)
+  (make-parser file-proc read-proc write-proc write-complete-proc)
   parser?
-  (reader parser-reader)
-  (writer parser-writer))
+  (file-proc parser-file-proc)
+  (read-proc parser-read-proc)
+  (write-proc parser-write-proc)
+  (write-complete-proc parser-write-complete-proc))
+
+(define (parser-file parser <path> subcmd-name)
+  ((parser-file-proc parser) <path> subcmd-name))
+
+(define (parser-write parser file-path subcmd-name subcmd-desc subcmd-synopsis
+                      . settings)
+  (apply (parser-write-proc parser) file-path subcmd-name subcmd-desc
+         subcmd-synopsis settings))
+
+(define (parser-read parser file-path)
+  ((parser-read-proc parser) file-path))
+
+(define (parser-write-complete configuration)
+  (match (parser-write-complete-proc (configuration-parser configuration))
+    (#f #f)
+    ((? procedure? proc) (proc configuration))))
 
 
 ;;;; Parsers
@@ -555,6 +603,4 @@ CONFIGURATION should be a <configuration>."
 ;; switches (as no configuration files are available to set defaults)
 
 (define identity-parser
-  (make-parser (lambda (configuration) #t)
-               (lambda* (configuration #:optional port)
-                 'fake-side-effect)))
+  (make-parser (const "") (const #t) (const '()) (const #f)))

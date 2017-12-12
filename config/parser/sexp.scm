@@ -29,114 +29,76 @@
   #:use-module (srfi srfi-26)
   #:export (sexp-parser))
 
-;;;;; The Sexp Parser
+;;;;; Parser Interface
 
-;; The following rules apply to this parser:
-;; - It writes one configuration file for an entire configuration tree.
-;;   + We use a nested association list for writing the file.
-;;   + Each subcommand contains its own section in the file.
-;;   + Inherited <settings> are repeated in each section that inherits them.
-;; - It writes the same configuration file to each directory in the
-;;   configuration and its subcommands.
-;;   + The writer works best in applications where subcommands simply inherit
-;;     the directory from root.
-;;   + If you have different configuration directories, you may want to
-;;     consider a parser that writes multiple configuration files.
-;; - The reader simply reads the specific subcommand of the file.
+;; Parsers should implement the following interface:
+;;
+;; - (parser-file parser <path> subcommand-name)
+;;   => Return a path containing the complete filename of the configuration
+;;      file at directory <path>.
+;; - (parser-write file-path subcommand-name (or subcommand-description subcommand-synopsis) (settings ...))
+;;   => Write settings to the configuration file at file-path.  If the
+;;      configuration file already exists, do nothing.
+;; - (parser-read file-path)
+;;   => Return an association of form '((setting-name . setting-default) ...)
+;;      read from the configuration file at file-path.  If the file does not
+;;      exist, return '().
+;;
+;; Parsers can optionally implement the following:
+;;
+;; - (parser-write-complete configuration)
+;;   => Write a complete representation of all the settings in the
+;;      root-configuration configuration.  This is invoked prior to
+;;      `parser-write'.
+;;
+;; If an optional implementation is present then it will be invoked at a
+;; specified time.
 
-(define (sexp-reader configuration)
-  #t)
+(define (parser-file <path> subcommand-name)
+  (string-append (path-given path) (symbol->string subcommand-name)))
 
-(define* (sexp-writer configuration #:optional port)
-  (define with-output-proc
-    (if (port? port)
-        (cut with-output-to-port port <>)
-        (cut with-output-to-file
-             (string-append (match (configuration-directory configuration)
-                              (($ <empty>)
-                               (throw 'sexp-writer
-                                      "No configuration directory specified"
-                                      (configuration-name configuration)))
-                              ((? string? s) s))
-                            file-name-separator-string
-                            "config.scm") <>)))
-  (match (configuration-directory configuration)
-    (($ <empty>) #t)
-    ((? string? dirname)
-     (mkdir-p (configuration-directory configuration))
-     (with-output-proc
-      (lambda ()
-        (print
-         (let lp ((forest (list configuration))
-                  (rev-breadcrumbs '()))
-           (fold (lambda (current result)
-                   (append result
-                           (let ((rev-breadcrumbs (cons (configuration-name current)
-                                                        rev-breadcrumbs)))
-                             (cons `((breadcrumbs . ,(reverse rev-breadcrumbs))
-                                     (help . ,(match (configuration-description current)
-                                                ((? string-null?)
-                                                 (configuration-synopsis current))
-                                                (desc desc)))
-                                     (settings . ,(keywords->setting-specs
-                                                   (configuration-keywords current))))
+(define (parser-write file-path subcmd-name subcmd-desc subcmd-synopsis
+                      . settings)
+  (define (print-comment field)
+    (format #t ";;~%")
+    (for-each (cut format #t ";; ~a~%" <>)
+              (string-split (fill-paragraph field 75) #\newline)))
 
-                                   (match (configuration-subcommands current)
-                                     (() '())
-                                     (subcommands
-                                      (lp subcommands rev-breadcrumbs)))))))
-                 '()
-                 forest))))))))
+  (when (not (file-exists? file-path))
+    (with-output-to-file file-path
+      (lambda _
+        (format #t ";;;;; ~a~%" subcmd-name)
+        (cond ((not (string-null? subcmd-desc))
+               (print-comment subcmd-desc))
+              ((not (string-null? subcmd-synopsis))
+               (print-comment subcmd-synopsis)))
+        (for-each (match-lambda
+                    ((name synopsis description example default)
+                     (format #t ";;;;; ~a~%" name)
+                     (cond ((not (string-null? description))
+                            (print-comment description))
+                           ((not (string-null? synopsis))
+                            (print-comment synopsis)))
+                     (when (not (string-null? example))
+                       (format #t ";;~%;; Example: ~a" example))
+                     (pretty-print (cons name default))))
+                  (map setting-name settings)
+                  (map setting-synopsis settings)
+                  (map setting-description settings)
+                  (map setting-example settings)
+                  (map setting-default settings))))))
+
+(define (parser-read file-path)
+  (catch #t
+    (lambda _
+      (let lp ((current (read))
+               (result '()))
+        (if (eof-object? current)
+            (reverse result)
+            (lp (read)
+                (cons current result)))))
+    (lambda args
+      '())))
 
 (define sexp-parser
-  (make-parser sexp-reader sexp-writer))
-
-;;;; Helpers
-
-(define* (print printables #:optional (port (current-output-port)))
-  (pretty-print printables)
-  (for-each
-   (match-lambda
-     ((('breadcrumbs . breadcrumbs)
-       ('help . help)
-       ('settings . (settings ...)))
-      (begin
-        (write breadcrumbs)
-        (format port "~%")
-        (for-each
-         (lambda (line)
-           (pretty-print line port
-                         #:per-line-prefix ";; "
-                         #:display? #t))
-         (string-split (fill-paragraph help 68) #\newline))
-        (format port "~%")
-        (for-each (lambda (setting)
-                    (match setting
-                      ((('name . name)
-                        ('help . help)
-                        ('value . value))
-                       (for-each
-                        (lambda (line)
-                          (pretty-print line port
-                                        #:per-line-prefix ";;; "
-                                        #:display? #t))
-                        (string-split (fill-paragraph help 68)
-                                      #\newline))
-                       (pretty-print (cons name value) port #:width 72
-                                     #:max-expr-width 72)
-                       (format port "~%"))))
-                  settings)))
-     (printable
-      (throw 'print "PRINTABLE does not fulfill contract." printable)))
-   printables))
-
-(define (keywords->setting-specs keywords)
-  (filter-map (match-lambda
-                ((? setting? n)
-                 `((name . ,(setting-name n))
-                   (help . ,(match (setting-description n)
-                              ((? string-null?) (setting-synopsis n))
-                              (desc desc)))
-                   (value . ,(setting-default n))))
-                (_ #f))
-              keywords))
+  (make-parser parser-file parser-write parser-read #f))

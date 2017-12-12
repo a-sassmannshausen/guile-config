@@ -28,7 +28,7 @@
   #:use-module (srfi srfi-26)
   #:export (read-commandline))
 
-(define (read-commandline commandline codex)
+(define (read-commandline commandline settings codex)
   "Return a codex, with commandline merged into codex, getopt-long style."
   ;; Turn Codex into getopt-long construct, then query getopt-long with
   ;; commandline values and feed those back into codex.
@@ -71,9 +71,14 @@
      codex
      (valus
       (map (lambda (kwd)
-             (set-keyword-default kwd ((keyword-handler kwd)
-                                       (option-ref gtl (keyword-name kwd)
-                                                   (keyword-default kwd)))))
+             (let ((proc (compose (cut set-keyword-default kwd <>)
+                                  (keyword-handler kwd))))
+               (match (option-ref gtl (keyword-name kwd) (empty))
+                 (($ <empty>)
+                  (match (assoc (keyword-name kwd) settings)
+                    ((n . v) v)
+                    (#f (keyword-default kwd))))
+                 (v (proc v)))))
            kwds)
       ;; Arguments can't be retrieved by name with getopt-long.  Instead,
       ;; fetch all args, then handle them ourselves.

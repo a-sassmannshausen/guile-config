@@ -82,11 +82,6 @@ if no help, usage, version or cmdtree was requested."
   "Return a <codex>, generated from CONFIGURATION applied to COMMANDLINE.
 
 Values from this codex can be extracted using `OPTION-REF'."
-  (define (read reader configuration reagents)
-    (reader configuration))
-  (define (write writer configuration reagents)
-    (writer configuration reagents))
-
   (let* ((reagents (subcommand-reagents commandline configuration))
          ;; Configuration fields are never overriden by commandline or
          ;; configuration file values, so we can resolve inheritance of those
@@ -104,22 +99,31 @@ Values from this codex can be extracted using `OPTION-REF'."
                                           configuration-subcommands)))
                (apply metadata (metadata-fetch (reagents-inverted reagents)))
                (apply valus (valus-fetch (reagents-inverted reagents)))
-               reagents)))
-    ;; The writer should always process the entire configuration tree.
-    (write (parser-writer (codex-metadatum 'parser cdx)) configuration
-           reagents)
+               reagents))
+         (parser (codex-metadatum 'parser cdx))
+         (config-file (metadata-directory (codex-metadata cdx))))
+    (if (single-configuration-file? config-file)
+        (when (path-eager? config-file)
+          (or (parser-write-complete configuration)
+              (write-codex config-file (codex-features cdx)
+                           (codex-valus cdx))))
+        (for-each (lambda (path)
+                    (when (path-eager? config-file)
+                      (or (parser-write-complete configuration)
+                          (write-codex parser config-file (codex-features cdx)
+                                       (codex-valus cdx)))))))
     (catch 'quit
       (lambda _
-        (call-with-values
-            (lambda ()
-              (parallel
-               ;; Merge configuration file through parser into cdx
-               (read (parser-reader (codex-metadatum 'parser cdx)) cdx reagents)
-               ;; merge commandline into cdx
-               (read-commandline (reagents-commandline reagents) cdx)))
-          ;; FIXME: codex-merge: combine the two above, with commandline-cdx precedence.
-          (lambda (configfile-cdx commandline-cdx)
-            commandline-cdx)))
+        (read-commandline
+         (reagents-commandline reagents)
+         (if (single-configuration-file? config-file)
+             (parser-read parser
+                          (parser-file parser config-file
+                                       (features-name (codex-features cdx))))
+             (read-codexes parser
+                           (map (cute parser-file parser <>
+                                      (features-name (codex-features cdx))))))
+         cdx))
       (lambda (k vals)
         (when (configuration-generate-help? configuration)
           (emit-help (read-commandline '() cdx)))
@@ -290,6 +294,34 @@ PORT, defaulting to stdout."
 
 
 ;;;;; Helpers
+
+(define (keywords->setting-specs keywords)
+  (filter-map (match-lambda
+                ((? setting? n)
+                 `((name . ,(setting-name n))
+                   (help . ,(match (setting-description n)
+                              ((? string-null?) (setting-synopsis n))
+                              (desc desc)))
+                   (value . ,(setting-default n))))
+                (_ #f))
+              keywords))
+
+(define (write-codex parser path features valus)
+  (parser-write parser
+                (parser-file parser path (features-name features))
+                (features-name features)
+                (features-description features)
+                (features-synopsis features)
+                (filter setting? (valus-keywords valus))))
+
+(define (read-codexes parser paths)
+  (let ((htable (make-hash-table)))
+    (for-each (lambda (path)
+                (for-each (match-lambda
+                            ((n . d) (hash-set! htable n v)))
+                          (parser-read parser path)))
+              paths)
+    (hash-map->list cons htable)))
 
 (define (sort-subcommands subcommands)
   "Return a formatted string consisting of the name and terse description of
