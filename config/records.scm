@@ -76,16 +76,16 @@ fields, and DELAYED is the list of identifiers of delayed fields."
                (record-error 'name s "extraneous field initializers ~a"
                              unexpected)))
 
-           #`(make-struct type 0
-                          #,@(map (lambda (field index)
-                                    (or (field-inherited-value field)
-                                        (if (innate-field? field)
-                                            (wrap-field-value
-                                             field (field-default-value field))
-                                            #`(struct-ref #,orig-record
-                                                          #,index))))
-                                  '(expected ...)
-                                  (iota (length '(expected ...))))))
+           #`(make-struct/no-tail type
+                                  #,@(map (lambda (field index)
+                                            (or (field-inherited-value field)
+                                                (if (innate-field? field)
+                                                    (wrap-field-value
+                                                     field (field-default-value field))
+                                                    #`(struct-ref #,orig-record
+                                                                  #,index))))
+                                          '(expected ...)
+                                          (iota (length '(expected ...))))))
 
          (define (thunked-field? f)
            (memq (syntax->datum f) 'thunked))

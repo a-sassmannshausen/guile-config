@@ -54,7 +54,7 @@
 ;; If an optional implementation is present then it will be invoked at a
 ;; specified time.
 
-(define (parser-file <path> subcommand-name)
+(define (parser-file path subcommand-name)
   (string-append (path-given path) (symbol->string subcommand-name)))
 
 (define (parser-write file-path subcmd-name subcmd-desc subcmd-synopsis
@@ -64,7 +64,8 @@
     (for-each (cut format #t ";; ~a~%" <>)
               (string-split (fill-paragraph field 75) #\newline)))
 
-  (when (not (file-exists? file-path))
+  (when (and (not (null? settings)) (not (file-exists? file-path)))
+    (mkdir-p (dirname file-path))
     (with-output-to-file file-path
       (lambda _
         (format #t ";;;;; ~a~%" subcmd-name)
@@ -72,16 +73,17 @@
                (print-comment subcmd-desc))
               ((not (string-null? subcmd-synopsis))
                (print-comment subcmd-synopsis)))
-        (for-each (match-lambda
-                    ((name synopsis description example default)
-                     (format #t ";;;;; ~a~%" name)
-                     (cond ((not (string-null? description))
-                            (print-comment description))
-                           ((not (string-null? synopsis))
-                            (print-comment synopsis)))
-                     (when (not (string-null? example))
-                       (format #t ";;~%;; Example: ~a" example))
-                     (pretty-print (cons name default))))
+        (for-each (lambda args
+                    (match args
+                      ((name synopsis description example default)
+                       (format #t ";;;;; ~a~%" name)
+                       (cond ((not (string-null? description))
+                              (print-comment description))
+                             ((not (string-null? synopsis))
+                              (print-comment synopsis)))
+                       (when (not (string-null? example))
+                         (format #t ";;~%;; Example: ~a" example))
+                       (pretty-print (cons name default)))))
                   (map setting-name settings)
                   (map setting-synopsis settings)
                   (map setting-description settings)
@@ -91,14 +93,16 @@
 (define (parser-read file-path)
   (catch #t
     (lambda _
-      (let lp ((current (read))
-               (result '()))
-        (if (eof-object? current)
-            (reverse result)
-            (lp (read)
-                (cons current result)))))
+      (with-input-from-file file-path
+        (lambda _
+          (let lp ((current (read))
+                   (result '()))
+            (if (eof-object? current)
+                (reverse result)
+                (lp (read)
+                    (cons current result)))))))
     (lambda args
       '())))
 
 (define sexp-parser
-  (make-parser parser-file parser-write parser-read #f))
+  (make-parser parser-file parser-read parser-write #f))

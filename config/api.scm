@@ -515,20 +515,19 @@ CONFIGURATION should be a <configuration>."
 
 (define (codex-metadatum key codex)
   "Return the metadatum identified by KEY."
-  (force
-   (let ((metadata (codex-metadata codex)))
-     (match key
-       ('directory (metadata-directory metadata))
-       ('version (metadata-version metadata))
-       ('license (metadata-license metadata))
-       ('copyright (metadata-copyright metadata))
-       ('author (metadata-author metadata))
-       ('parser (metadata-parser metadata))
-       ('generate-help? (metadata-generate-help? metadata))
-       ('generate-usage? (metadata-generate-usage? metadata))
-       ('generate-version? (metadata-generate-version? metadata))
-       ('generate-cmdtree? (metadata-generate-cmdtree? metadata))
-       (n (throw 'codex-metadatum "no matching pattern" n))))))
+  (let ((metadata (codex-metadata codex)))
+    (match key
+      ('directory (metadata-directory metadata))
+      ('version (metadata-version metadata))
+      ('license (metadata-license metadata))
+      ('copyright (metadata-copyright metadata))
+      ('author (metadata-author metadata))
+      ('parser (metadata-parser metadata))
+      ('generate-help? (metadata-generate-help? metadata))
+      ('generate-usage? (metadata-generate-usage? metadata))
+      ('generate-version? (metadata-generate-version? metadata))
+      ('generate-cmdtree? (metadata-generate-cmdtree? metadata))
+      (n (throw 'codex-metadatum "no matching pattern" n)))))
 
 (define (find-argument key arguments)
   "Return the argument identified by KEY in ARGUMENTS or #f."
@@ -603,4 +602,4 @@ CONFIGURATION should be a <configuration>."
 ;; switches (as no configuration files are available to set defaults)
 
 (define identity-parser
-  (make-parser (const "") (const #t) (const '()) (const #f)))
+  (make-parser (const "") (const '()) (const #t) (const #f)))

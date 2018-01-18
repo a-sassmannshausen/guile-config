@@ -102,31 +102,38 @@ Values from this codex can be extracted using `OPTION-REF'."
                reagents))
          (parser (codex-metadatum 'parser cdx))
          (config-file (metadata-directory (codex-metadata cdx))))
-    (if (single-configuration-file? config-file)
-        (when (path-eager? config-file)
-          (or (parser-write-complete configuration)
-              (write-codex config-file (codex-features cdx)
-                           (codex-valus cdx))))
-        (for-each (lambda (path)
-                    (when (path-eager? config-file)
-                      (or (parser-write-complete configuration)
-                          (write-codex parser config-file (codex-features cdx)
-                                       (codex-valus cdx)))))))
+    (when (not (empty? config-file))
+      (if (single-configuration-file? config-file)
+          (when (path-eager? config-file)
+            (or (parser-write-complete configuration)
+                (write-codex parser config-file (codex-features cdx)
+                             (codex-valus cdx))))
+          (for-each (lambda (path)
+                      (when (path-eager? config-file)
+                        (or (parser-write-complete configuration)
+                            (write-codex parser config-file
+                                         (codex-features cdx)
+                                         (codex-valus cdx)))))
+                    config-file)))
     (catch 'quit
       (lambda _
         (read-commandline
          (reagents-commandline reagents)
-         (if (single-configuration-file? config-file)
-             (parser-read parser
-                          (parser-file parser config-file
-                                       (features-name (codex-features cdx))))
-             (read-codexes parser
-                           (map (cute parser-file parser <>
-                                      (features-name (codex-features cdx))))))
+         (cond ((empty? config-file) '())
+               ((single-configuration-file? config-file)
+                (parser-read parser
+                             (parser-file parser config-file
+                                          (features-name
+                                           (codex-features cdx)))))
+               (else
+                (read-codexes parser
+                              (map (cute parser-file parser <>
+                                         (features-name (codex-features cdx)))
+                                   config-file))))
          cdx))
       (lambda (k vals)
         (when (configuration-generate-help? configuration)
-          (emit-help (read-commandline '() cdx)))
+          (emit-help (read-commandline '() '() cdx)))
         (exit 1)))))
 
 
@@ -139,17 +146,16 @@ Values from this codex can be extracted using `OPTION-REF'."
   "Return the metadata values with inheritance resolved, for INVERTED."
   (map (lambda (getter)
          ;; Delay as we may never need some of the fields we generate here.
-         (delay
-           (let lp ((current-entry (inverted-next-config inverted))
-                    (rest (cdr inverted)))
-             (match (getter current-entry)
-               ((or (? not value) (? empty? value))
-                (if (null? rest)
-                    value
-                    (lp (inverted-next-config rest)
-                        (cdr rest))))
-               (value value)
-               (n (throw 'metadata-fetch "no matching pattern" n))))))
+         (let lp ((current-entry (inverted-next-config inverted))
+                  (rest (cdr inverted)))
+           (match (getter current-entry)
+             ((or (? not value) (? empty? value))
+              (if (null? rest)
+                  value
+                  (lp (inverted-next-config rest)
+                      (cdr rest))))
+             (value value)
+             (n (throw 'metadata-fetch "no matching pattern" n)))))
        (list configuration-directory
              configuration-version
              configuration-license
@@ -307,18 +313,18 @@ PORT, defaulting to stdout."
               keywords))
 
 (define (write-codex parser path features valus)
-  (parser-write parser
-                (parser-file parser path (features-name features))
-                (features-name features)
-                (features-description features)
-                (features-synopsis features)
-                (filter setting? (valus-keywords valus))))
+  (apply parser-write parser
+         (parser-file parser path (features-name features))
+         (features-name features)
+         (features-description features)
+         (features-synopsis features)
+         (filter setting? (valus-keywords valus))))
 
 (define (read-codexes parser paths)
   (let ((htable (make-hash-table)))
     (for-each (lambda (path)
                 (for-each (match-lambda
-                            ((n . d) (hash-set! htable n v)))
+                            ((n . d) (hash-set! htable n d)))
                           (parser-read parser path)))
               paths)
     (hash-map->list cons htable)))

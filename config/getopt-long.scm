@@ -71,14 +71,17 @@
      codex
      (valus
       (map (lambda (kwd)
-             (let ((proc (compose (cut set-keyword-default kwd <>)
-                                  (keyword-handler kwd))))
-               (match (option-ref gtl (keyword-name kwd) (empty))
-                 (($ <empty>)
-                  (match (assoc (keyword-name kwd) settings)
-                    ((n . v) v)
-                    (#f (keyword-default kwd))))
-                 (v (proc v)))))
+             (if (secret? kwd)
+                 kwd                    ; <secret> is never updated
+                 (let ((proc (compose (cut set-keyword-default kwd <>)
+                                      (keyword-handler kwd)))
+                       (kwd-name (keyword-name kwd)))
+                   (match (option-ref gtl kwd-name (empty))
+                     (($ <empty>)
+                      (match (assoc kwd-name settings)
+                        ((n . v) v)
+                        (#f kwd)))
+                     (v (proc v))))))
            kwds)
       ;; Arguments can't be retrieved by name with getopt-long.  Instead,
       ;; fetch all args, then handle them ourselves.
@@ -118,7 +121,8 @@
            (cons (getopt-spec name test handler character optional #f) done))
           (_ done))))
     '()
-    keywords)))
+    (filter (negate secret?)
+            keywords))))
 
 (define (getopt-spec name test handler single-char optional? required)
   "Create a getopt-long spec entry from NAME, TEST, HANDLER, SINGLE-CHAR,
