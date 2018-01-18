@@ -29,17 +29,11 @@ nobase_go_DATA = $(GOBJECTS)
 guile_install_go_files = install-nobase_goDATA
 $(guile_install_go_files): install-nobase_modDATA
 
-CLEANFILES =					\
-  $(GOBJECTS)					\
-  $(TESTS:tests/%.scm=%.log)
 EXTRA_DIST = $(SOURCES) $(NOCOMP_SOURCES)
 GUILE_WARNINGS = -Wunbound-variable -Warity-mismatch -Wformat
 SUFFIXES = .scm .go
 .scm.go:
 	$(AM_V_GEN)$(top_builddir)/pre-inst-env $(GUILE_TOOLS) compile $(GUILE_WARNINGS) -o "$@" "$<"
-
-moddir=$(prefix)/share/guile/site/2.2
-godir=$(libdir)/guile/2.2/ccache
 
 SOURCES =					\
   config.scm					\
@@ -71,8 +65,6 @@ EXTRA_DIST +=					\
 
 ACLOCAL_AMFLAGS = -I m4
 
-dist-hook: gen-ChangeLog
-
 gen-ChangeLog:
 	$(AM_V_GEN)if test -d .git; then		\
 	  $(top_srcdir)/build-aux/gitlog-to-changelog	\
@@ -80,3 +72,14 @@ gen-ChangeLog:
 	  rm -f $(distdir)/ChangeLog;			\
 	  mv $(distdir)/cl-t $(distdir)/ChangeLog;	\
 	fi
+
+dist-hook: gen-ChangeLog
+.PHONY: gen-ChangeLog
+
+clean-go:
+	-$(RM) $(GOBJECTS)
+.PHONY: clean-go
+
+CLEANFILES =					\
+  $(GOBJECTS)					\
+  $(TESTS:tests/%.scm=%.log)

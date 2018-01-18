@@ -39,10 +39,7 @@
              (guix build-system gnu)
              (gnu packages)
              (gnu packages autotools)
-             (gnu packages gettext)
-             (gnu packages version-control)
              (gnu packages guile)
-             (gnu packages perl)
              (gnu packages pkg-config)
              (gnu packages texinfo))
 
@@ -54,12 +51,21 @@
   (native-inputs
    `(("autoconf" ,autoconf)
      ("automake" ,automake)
-     ("gettext" ,gnu-gettext)
      ("pkg-config" ,pkg-config)
      ("texinfo" ,texinfo)))
-  (inputs
-   `(("guile" ,guile-2.2)
-     ("git" ,git)))
+  (propagated-inputs `(("guile" ,guile-2.2)))
+  (arguments
+   '(#:phases (modify-phases %standard-phases
+                (add-before 'configure 'set-guilesitedir
+                            (lambda _
+                              (substitute* "Makefile.in"
+                                (("^guilesitedir =.*$")
+                                 "guilesitedir = \
+$(datadir)/guile/site/$(GUILE_EFFECTIVE_VERSION)\n"))
+                              #t))
+                (add-after 'unpack 'autoreconf
+                           (lambda _
+                             (zero? (system* "autoreconf" "-vfi")))))))
   (synopsis "Guile application configuration parsing library.")
   (description "Guile-config is a library enhancing (ice-9 getopt-long).")
   (home-page "https://gitlab.com/guile-projects/guile-config")
