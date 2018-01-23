@@ -53,7 +53,7 @@
      ("automake" ,automake)
      ("pkg-config" ,pkg-config)
      ("texinfo" ,texinfo)))
-  (propagated-inputs `(("guile" ,guile-2.2)))
+  (propagated-inputs `(("guile" ,guile-2.2.3)))
   (arguments
    '(#:phases (modify-phases %standard-phases
                 (add-before 'configure 'set-guilesitedir

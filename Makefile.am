@@ -18,6 +18,10 @@
 
 GOBJECTS = $(SOURCES:%.scm=%.go)
 
+moddir=$(guilesitedir)
+godir=$(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/site-ccache
+ccachedir=$(libdir)/guile/$(GUILE_EFFECTIVE_VERSION)/site-ccache
+
 nobase_mod_DATA = $(SOURCES) $(NOCOMP_SOURCES)
 nobase_go_DATA = $(GOBJECTS)
 
