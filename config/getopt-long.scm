@@ -79,7 +79,7 @@
                    (match (option-ref gtl kwd-name (empty))
                      (($ <empty>)
                       (match (assoc kwd-name settings)
-                        ((n . v) v)
+                        ((n . v) (proc v))
                         (#f kwd)))
                      (v (proc v))))))
            kwds)
