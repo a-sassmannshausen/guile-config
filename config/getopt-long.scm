@@ -73,15 +73,20 @@
       (map (lambda (kwd)
              (if (secret? kwd)
                  kwd                    ; <secret> is never updated
-                 (let ((proc (compose (cut set-keyword-default kwd <>)
-                                      (keyword-handler kwd)))
-                       (kwd-name (keyword-name kwd)))
+                 (let ((kwd-name (keyword-name kwd)))
                    (match (option-ref gtl kwd-name (empty))
                      (($ <empty>)
                       (match (assoc kwd-name settings)
-                        ((n . v) (proc v))
+                        ((n . v)
+                         (let ((value ((keyword-handler kwd) v)))
+                           (if ((keyword-test kwd) value)
+                               (set-keyword-default kwd value)
+                               (begin
+                                 (format #t "error: keyword did not pass test!~%")
+                                 (throw 'quit)))))
                         (#f kwd)))
-                     (v (proc v))))))
+                     (v (set-keyword-default kwd
+                                             ((keyword-handler kwd) v)))))))
            kwds)
       ;; Arguments can't be retrieved by name with getopt-long.  Instead,
       ;; fetch all args, then handle them ourselves.

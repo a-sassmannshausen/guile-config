@@ -111,6 +111,7 @@
 
             keyword-name
             keyword-handler
+            keyword-test
             keyword-character
             keyword-default
             set-keyword-default
@@ -223,6 +224,14 @@ try to deduce from the KEYWORD name.  Else return the character setting."
     (($ <switch>) (switch-handler keyword))
     (($ <setting>) (setting-handler keyword))
     (n (throw 'keyword-handler "no matching pattern" n))))
+
+(define (keyword-test keyword)
+  "Return KEYWORD test or throw error."
+  (match keyword
+    (($ <secret>) (throw 'keyword-test "SECRET's don't have tests"))
+    (($ <switch>) (switch-test keyword))
+    (($ <setting>) (setting-test keyword))
+    (n (throw 'keyword-test "no matching pattern" n))))
 
 (define (keyword-default keyword)
   "Return KEYWORD default."
