@@ -496,7 +496,10 @@ This formatting is intended for the brief summary of our command."
                                          long-bools
                                          (cons (string-append "[-"
                                                               (string s)
-                                                              " " e "]")
+                                                              (match e
+                                                                ("" "")
+                                                                (e (string-append " " e)))
+                                                              "]")
                                                short-rest)
                                          long-rest))
                                   (else
