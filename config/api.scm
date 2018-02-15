@@ -327,7 +327,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (list? conf-dir))
 
 (define (single-configuration-file? conf-dir)
-  (negate n-configuration-files?))
+  ((negate n-configuration-files?) conf-dir))
 
 ;;;; Internal API
 

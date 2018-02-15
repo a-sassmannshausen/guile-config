@@ -109,9 +109,9 @@ Values from this codex can be extracted using `OPTION-REF'."
                 (write-codex parser config-file (codex-features cdx)
                              (codex-valus cdx))))
           (for-each (lambda (path)
-                      (when (path-eager? config-file)
+                      (when (path-eager? path)
                         (or (parser-write-complete configuration)
-                            (write-codex parser config-file
+                            (write-codex parser path
                                          (codex-features cdx)
                                          (codex-valus cdx)))))
                     config-file)))
