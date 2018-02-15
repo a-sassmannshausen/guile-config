@@ -82,7 +82,8 @@
                            (if ((keyword-test kwd) value)
                                (set-keyword-default kwd value)
                                (begin
-                                 (format #t "error: keyword did not pass test!~%")
+                                 (format #t "error: ~a: setting predicate failed: --~a~%"
+                                         (string-join (full-command codex)) kwd-name)
                                  (throw 'quit)))))
                         (#f kwd)))
                      (v (set-keyword-default kwd
