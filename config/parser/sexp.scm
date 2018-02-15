@@ -68,11 +68,12 @@
     (mkdir-p (dirname file-path))
     (with-output-to-file file-path
       (lambda _
-        (format #t ";;;;; ~a~%" subcmd-name)
+        (format #t ";;;; ~a~%" subcmd-name)
         (cond ((not (string-null? subcmd-desc))
                (print-comment subcmd-desc))
               ((not (string-null? subcmd-synopsis))
                (print-comment subcmd-synopsis)))
+        (newline)
         (for-each (lambda args
                     (match args
                       ((name synopsis description example default)
@@ -85,7 +86,8 @@
                          (format #t ";;~%;; Example: ~a~%" example))
                        (newline)
                        (pretty-print (cons name default))
-                       (newline))))
+                       (newline))
+                      (_ 'unworkable-configuration)))
                   (map setting-name settings)
                   (map setting-synopsis settings)
                   (map setting-description settings)
