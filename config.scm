@@ -32,6 +32,7 @@
   #:export (getopt-config-auto
             getopt-config
             option-ref
+            options-write
 
             emit-help emit-version))
 
@@ -102,19 +103,7 @@ Values from this codex can be extracted using `OPTION-REF'."
                reagents))
          (parser (codex-metadatum 'parser cdx))
          (config-file (metadata-directory (codex-metadata cdx))))
-    (when (not (empty? config-file))
-      (if (single-configuration-file? config-file)
-          (when (path-eager? config-file)
-            (or (parser-write-complete configuration)
-                (write-codex parser config-file (codex-features cdx)
-                             (codex-valus cdx))))
-          (for-each (lambda (path)
-                      (when (path-eager? path)
-                        (or (parser-write-complete configuration)
-                            (write-codex parser path
-                                         (codex-features cdx)
-                                         (codex-valus cdx)))))
-                    config-file)))
+    (options-write cdx configuration #t)
     (catch 'quit
       (lambda _
         (read-commandline
@@ -135,6 +124,28 @@ Values from this codex can be extracted using `OPTION-REF'."
         (when (configuration-generate-help? configuration)
           (emit-help (read-commandline '() '() cdx)))
         (exit 1)))))
+
+(define* (options-write codex #:optional configuration eager-only?)
+  "Write configuration files in CODEX.  If EAGER-ONLY? is #t, write only the
+eager configuration files. If CONFIGURATION is provided, instead, try to write
+the complete configuration configuration files."
+  (let ((parser (codex-metadatum 'parser codex))
+        (config-file (metadata-directory (codex-metadata codex))))
+    (when (not (empty? config-file))
+      (if (single-configuration-file? config-file)
+          (when (or (and eager-only? (path-eager? config-file))
+                    (not eager-only?))
+            (or (and=> configuration parser-write-complete)
+                (write-codex parser config-file (codex-features codex)
+                             (codex-valus codex))))
+          (for-each (lambda (path)
+                      (when (or (and eager-only? (path-eager? path))
+                                (not eager-only?))
+                        (or (and=> configuration parser-write-complete)
+                            (write-codex parser path
+                                         (codex-features codex)
+                                         (codex-valus codex)))))
+                    config-file)))))
 
 
 ;;;;; Helpers
