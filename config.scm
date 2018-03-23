@@ -122,7 +122,7 @@ Values from this codex can be extracted using `OPTION-REF'."
          cdx))
       (lambda (k vals)
         (when (configuration-generate-help? configuration)
-          (emit-help (read-commandline '() '() cdx)))
+          (emit-help cdx))
         (exit 1)))))
 
 (define* (options-write codex #:optional configuration eager-only?)
