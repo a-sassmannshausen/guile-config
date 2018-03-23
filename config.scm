@@ -66,19 +66,6 @@ if no help, usage, version or cmdtree was requested."
            (exit 0))
           (else cdx))))
 
-;; First procedure will compile root configuration, hand off to parser to
-;; ensure configuration files exist.
-;;
-;; In parallel:
-;; - pass to parser to generate 'configuration-file' codex of the requested
-;;   subcommand.
-;; - generate generate 'command-line' codex of the requested subcommand.
-;;
-;; Then create the union of the two codexes, with command-line codex
-;; overriding configuration-file codex, where values are given.
-
-;; For now, parser is a stub: write will return successful IO side-effect,
-;; read will always return the natural codex for the given subcommand.
 (define (getopt-config commandline configuration)
   "Return a <codex>, generated from CONFIGURATION applied to COMMANDLINE.
 
@@ -103,7 +90,10 @@ Values from this codex can be extracted using `OPTION-REF'."
                reagents))
          (parser (codex-metadatum 'parser cdx))
          (config-file (metadata-directory (codex-metadata cdx))))
+    ;; We should try to ensure eager configuration files exist now: write them
+    ;; if non-existing
     (options-write cdx configuration #t)
+    ;; Try parsing commandline and config file.  On error...
     (catch 'quit
       (lambda _
         (read-commandline
@@ -120,6 +110,7 @@ Values from this codex can be extracted using `OPTION-REF'."
                                          (features-name (codex-features cdx)))
                                    config-file))))
          cdx))
+      ;; Emit help if requested, else quit
       (lambda (k vals)
         (when (configuration-generate-help? configuration)
           (emit-help cdx))

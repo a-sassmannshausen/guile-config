@@ -55,10 +55,15 @@
 ;; specified time.
 
 (define (parser-file path subcommand-name)
+  "Return the full filename for the subcommand SUBCOMMAND-NAME at <path>
+PATH."
   (string-append (path-given path) (symbol->string subcommand-name)))
 
 (define (parser-write file-path subcmd-name subcmd-desc subcmd-synopsis
                       . settings)
+  "Write the configuration-file for the subcommand identified by SUBCMD-NAME,
+with strings SUBCMD-DESC & SUBCMD-SYNOPSIS at file-path.  We don't know about
+configurations or codexes, we simply write SETTINGS."
   (define (print-comment field)
     (format #t ";;~%")
     (for-each (cut format #t ";; ~a~%" <>)
@@ -95,6 +100,8 @@
                   (map setting-default settings))))))
 
 (define (parser-read file-path)
+  "Return an association-list of the settings contained in the
+configuration-file at FILE-PATH."
   (catch #t
     (lambda _
       (with-input-from-file file-path
@@ -108,5 +115,6 @@
     (lambda args
       '())))
 
+;; Return the complete parser.
 (define sexp-parser
   (make-parser parser-file parser-read parser-write #f))
