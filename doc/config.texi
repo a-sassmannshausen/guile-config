@@ -10,7 +10,7 @@
 @include version.texi
 
 @copying
-Copyright @copyright{} 2015 Alex Sassmannshausen
+Copyright @copyright{} 2015-2018 Alex Sassmannshausen
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -70,51 +70,49 @@ This document describes Guile Config version @value{VERSION}.
 
 Guile Config is a declarative configuration language for applications.
 
-As an easy to parse (*hohum*) list:
 @itemize
 @item
 You can declare:
-
 @itemize
 @item
-Application internal configuration variables (private options).
-
+Application internal configuration variables (secrets).
 @item
-Command-line configuration options (public options).
-
+Command-line configuration options (switches).
 @item
-Configuration file & command-line configuration options (open options).
-
+Configuration file & command-line configuration options (settings).
 @item
-Sub-commands with their own set of private, public and open options.
-
+Positional command-line parameters (arguments).
+@item
+Sub-commands with their own set of secrets, switches, settings and
+arguments & inheritance from parent specifications.
 @item
 Whether to automatically generate the standard @option{--help},
-@option{--usage} and @option{--version} command-line options.
+@option{--usage} and @option{--version} command-line options (the
+library will do so by default).
+@item
+Authors, licenses, copyright years, synopses & descriptions.
+@item
+Where to install configuration files, with syntactic sugar for common
+cases such as in home directory and in invocation directory
+configuration files.
+@item
+Support for different configuration file parsing backends (only a sexp
+and identity parser are currently provided)
 @end itemize
 
 @item
 You can parse through:
-
 @itemize
 @item
 @code{getopt-config} or @code{getopt-config-auto}, which parse
 command-line arguments and return objects that can be used in the same
 manner as the object returned by @code{getopt-long}.
-
 @item
-@code{getmio-config} or @code{getmio-config-auto}, which return io-monad
-values that will parse command-line arguments and return objects that
-can be used in the same manner as the object returned by
-@code{getopt-long}.
-
-@item
-In both cases, if you use the @emph{-auto} version, your program will
-automatically emit help or version messages, if they were declared, and
-exit with code 0, if a @option{--help}, @option{--usage} or
-@option{--version} command-line argument was detected.
+If you use the @emph{-auto} version, your program will automatically
+emit help or version messages unless suppressed and exit with code 0, if
+a @option{--help}, @option{--usage} or @option{--version} command-line
+argument was detected.
 @end itemize
-
 @item
 You can access the values of individual configuration options using the
 @code{option-ref} function in the same manner that you would when using
@@ -125,11 +123,6 @@ Guile Config builds upon the excellent @code{(ice-9 getopt-long)}
 module, augmenting it with configuration file management, and recursive
 sub-command management.
 
-Guile Config internally uses a monad: the IO monad, and can be used in
-IO monadic style or coventional style.  In the former it is
-referentially transparent and side-effect free.  In the latter it has
-side-effects.
-
 @c *********************************************************************
 @node Overview
 @chapter Overview
@@ -137,13 +130,9 @@ side-effects.
 This chapter will provide you with concrete examples of the use of the
 config library.
 
-First we will declare our application configuration.  After this we will
-use it in a conventional and in a monadic example.
-
 @menu
 * Declaration::                     How to declare a configuration
 * Conventional use::                How to use the configuration conventionally
-* Monadic use::                     How to use the configuration monadically
 @end menu
 
 @c *********************************************************************
@@ -157,113 +146,107 @@ This first example is bare-bones and simply serves to illustrate a
 minimal use-case for our library.  It will not be used in the rest of
 this chapter.
 
-Nonetheless, we request automatic help, usage and version messages. Our
-version message will be bare-bones as we have not specified copyright,
-version, license or author.
+Behind the scenes we request automatic help, usage and version
+messages. Our version message will be bare-bones as we have not
+specified copyright, version, license or author.
 
 @lisp
-(use-modules (conf))
+(use-modules (config)
+             (config api))
 
-(define root-config
-  (configuration 'frobnigator
-    "The root configuration for frobnigator."
+(define config
+  (configuration
+   (name 'frobnigator)
+   (synopsis "The root configuration for frobnigator.")
+   (keywords
     (list
-      (public-option 'log-level
-        "The verbosity of the command."
-        #:single-char #\l
-        #:example "3"
-        #:value 1
-        #:test integer?
-        #:handler string->number)
-      (public-option 'silent
-        "Should we not emit to stdout?"
-        #:single-char #\s
-        #:value #f))
-    #:help? #t
-    #:usage? #t))
+     (switch
+      (name 'log-level)
+      (synopsis "The verbosity of the command.")
+      ;; Explicit short form.
+      (character #\l)
+      (example "3")
+      (default 1)
+      (test integer?)
+      (handler string->number))
+     (switch
+      ;; Implicit short form, defaults to first character of name.
+      (name 'silent)
+      (synopsis "Should we not emit to stdout?")
+      ;; Boolean flag
+      (default #f) (test boolean?))))))
 @end lisp
 
 In this next example we will declare a relatively small configuration
 with 2 sub-commands.  As above, we request automatically generated help,
 usage and version messages.  We also declare the author, copyright and
 the license of the application for greater accuracy in the emitted
-messages.
+@option{--version} message.
 
-Setting the #:inherit option in the root-config ensures that all
-options, including the automatically generated help, usage and version
-options, will be inherited by the subcommand configurations; so there is
-no need to redeclare those!
+We tell one of the sub-commands to inherit the keywords from the root
+configuration using the @code{wanted} field of the @code{configuration}
+record type.
 
 This is a moderately complex example to show off some advanced features
 of the library.
 
 @lisp
-(use-modules (conf)
-             (srfi srfi-26)
+(use-modules (config)
+             (config api)
+             (config licenses)
+             (config parser sexp))
 
-(define root-config
-  (configuration 'frobnigator
-    "The root configuration for frobnigator."
+(define config
+  (configuration
+   (name 'frobnigator)
+   (synopsis "The root configuration for frobnigator.")
+   (keywords
     (list
-      (configuration 'make
-        "Configuration for the make sub-command."
-        (list
-          ;; An open option flag (either #t or #f) that can be passed as a
-          ;; command-line param or set as a value in the configuration file.
-          ;; In either case config will ensure the value is either #t or #f.
-          ;; Getopt-long will ensure in command-line usage no value is
-          ;; specified.
-          (open-option 'verbose
-            "Be chatty."
-            #:single-char #\v
-            #:value #f)
-          ;; A public option that can only be specified on the command-line.
-          ;; It has no short version, and a value must be specified, though
-          ;; it defaults to a value.
-          ;; The value is expected to be a white space delimited string which
-          ;; is then turned into a file name using handler.
-          (public-option 'source
-            "A file to import from."
-            #:value "tmp frobnigator import"
-            #:test string?
-            #:example "home frob file"
-            #:handler (compose (cut string-join <> file-name-separator-string
-                                    'prefix)
-                               (cut string-split <> #\ ))))
-        #:config-dir "/tmp/frobnigator")
-      ;; This configuration contains no open-options as a result it requires
-      ;; no configuration file.
-      (configuration 'test
-        "Configuration for the test sub-command."
-        (list
-          ;; A public option which must resolve to an integer.  On the
-          ;; command-line it will be passed as a string but automatically
-          ;; converted to a number.
-          (public-option 'log-level
-            "The verbosity of the command."
-            #:single-char #\l
-            #:example "3"
-            #:value 1
-            #:test integer?
-            #:handler string->number))
-        #:alias 'tst)
-      ;; A command-line option that specifies a file for frobnigator to
-      ;; operate on.
-      ;; By not specifying a value we make this option mandatory.  If the file
-      ;; name specified does not exist we simply error out thanks to our test.
-      (public-option 'target
-        "The target for frobnigator."
-        #:test file-exists?
-        #:example "/tmp/frob-target"
-        #:single-char #\t))
-    #:config-dir "/tmp/frobnigator"
-    #:inherit #t
-    #:help? #t
-    #:usage? #t
-    #:copyright '(2015 2016)
-    #:version? "0.1"
-    #:license 'agplv3+
-    #:author "Alex Sassmannshausen"))
+     ;; A setting (either #t or #f) that can be passed as a command-line param
+     ;; or set as a value in the configuration file.  In either case config
+     ;; will ensure the value is either #t or #f.  Getopt-long will ensure in
+     ;; command-line usage no value is specified.
+     (setting
+      (name 'verbose) (synopsis "Be chatty.")
+      (default #f) (test boolean?))
+     ;; A switch that can only be specified on the command-line.  It has no
+     ;; short version, and a value must be specified, though it defaults to a
+     ;; value.  The value is expected to be a white space delimited string
+     ;; which is then turned into a file name using handler.
+     (switch
+      (name 'lines)
+      (synopsis "Maximum lines to emit, or infinite if #f (default).")
+      (default #f) (test (lambda (v) (or (not v) (number? v))))
+      (example "36")
+      (handler string->number))))
+   (arguments
+    (list
+     (argument
+      (name 'file) (optional? #f)
+      (test file-exists?) (handler identity)
+      (example "/tmp/foo"))))
+   (subcommands
+    (list
+     ;; A very simple sub-configuration only inheriting the 'file positional
+     ;; command-line argument.
+     (configuration
+      (name 'make)
+      (synopsis "Configuration for the make sub-command.")
+      (wanted '((arguments . (file)))))
+     (configuration
+      (name 'complex-inheritance)
+      (alias 'cmp)
+      (synopsis "We inherit everything")
+      (wanted '((arguments . (file))
+                (keywords . (verbose lines)))))))
+   (directory (list (in-home ".frobnigator")
+                    (path (given "/tmp/frobnigator/")
+                          (eager? #t))))
+   (parser sexp-parser)
+   (copyright '(2015 2016))
+   (version "0.1")
+   (license agpl3+)
+   (author "Alex Sassmannshausen")))
 @end lisp
 
 @c *********************************************************************
@@ -308,30 +291,6 @@ message generators:
 This latter usage is closer to the @code{getopt-long} style, but can
 still benefit from our emitters.  Of course you are free to write your
 own version or usage emitters.
-
-@c *********************************************************************
-@node Monadic use
-@section Monadic use
-
-Monadic use of the config library will be of interest to you if you
-prefer working in a purely functional monadic style.
-
-As above we have the option of using an automatic version or a manual
-version.  Use of the manual version is left as an exercise to the user.
-
-@lisp
-;; We assume we are operating in the same file as in the previous chapter, so
-;; we don't need to load modules, and root-config is defined.
-;; We must however import our monad modules:
-(use-modules (conf monads)
-             (conf monads io))
-
-(run-io
-  (mlet* %io-monad
-      ((config (getmio-config-auto (command-line) root-config))
-       (ignore (iosimple-format "Target: ~a~%" (option-ref config 'target))))
-    (return config)))
-@end lisp
 
 @c *********************************************************************
 @node Configuration
