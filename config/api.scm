@@ -302,7 +302,7 @@ try to deduce from the KEYWORD name.  Else return the character setting."
   (license           configuration-license           (default (empty)))
   (copyright         configuration-copyright         (default (empty)))
   (author            configuration-author            (default (empty)))
-  (parser            configuration-parser            (default (empty)))
+  (parser            configuration-parser            (default identity-parser))
   (alias             configuration-alias             (default #f))
   (generate-help?    configuration-generate-help?    (default #t))
   (generate-usage?   configuration-generate-usage?   (default #t))
