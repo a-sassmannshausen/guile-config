@@ -48,7 +48,8 @@ SOURCES =					\
   config/parser/sexp.scm			\
   config/records.scm
 
-TESTS =
+TESTS =                                         \
+  tests/config.scm
 
 TEST_EXTENSIONS = .scm
 AM_TESTS_ENVIRONMENT = abs_top_srcdir="$(abs_top_srcdir)"
@@ -65,6 +66,8 @@ EXTRA_DIST +=					\
   ChangeLog					\
   AUTHORS					\
   NEWS						\
+  quickcheck/quickcheck.scm			\
+  tests/quickcheck-defs.scm			\
   $(TESTS)
 
 ACLOCAL_AMFLAGS = -I m4
