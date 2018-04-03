@@ -5,6 +5,7 @@
 *.png
 *.tar.xz
 *.tmp
+*.info
 *~
 ,*
 /ABOUT-NLS
