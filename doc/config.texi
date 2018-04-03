@@ -68,7 +68,12 @@ This document describes Guile Config version @value{VERSION}.
 @node Introduction
 @chapter Introduction
 
-Guile Config is a declarative configuration language for applications.
+Guile Config allows you to declare different options your program can
+handle.  It is a kind of mutated version of getopt-long.
+
+Of course there are different kind of options you may wish to declare:
+You've got your switches, your settings and sometimes, you've got your
+secrets.  We handle them all.
 
 @itemize
 @item
@@ -132,126 +137,43 @@ config library.
 
 @menu
 * Declaration::                     How to declare a configuration
-* Conventional use::                How to use the configuration conventionally
+* Using the damn thing::            How to use a declared configuration
 @end menu
 
 @c *********************************************************************
 @node Declaration
 @section Declaration
 
-The declaration of your application's configuration happens through the
-@code{configuration} @pxref{Configuration} command.
-
-This first example is bare-bones and simply serves to illustrate a
-minimal use-case for our library.  It will not be used in the rest of
-this chapter.
+The work pony of this library is the @code{configuration}
+@pxref{Configuration} command, through which you can declare your
+application's options. Here follow 2 examples, the first bare-bones, the
+second more elaborate.
 
 Behind the scenes we request automatic help, usage and version
 messages. Our version message will be bare-bones as we have not
 specified copyright, version, license or author.
 
 @lisp
-(use-modules (config)
-             (config api))
-
-(define config
-  (configuration
-   (name 'frobnigator)
-   (synopsis "The root configuration for frobnigator.")
-   (keywords
-    (list
-     (switch
-      (name 'log-level)
-      (synopsis "The verbosity of the command.")
-      ;; Explicit short form.
-      (character #\l)
-      (example "3")
-      (default 1)
-      (test integer?)
-      (handler string->number))
-     (switch
-      ;; Implicit short form, defaults to first character of name.
-      (name 'silent)
-      (synopsis "Should we not emit to stdout?")
-      ;; Boolean flag
-      (default #f) (test boolean?))))))
+@include examples/simple.scm
 @end lisp
 
-In this next example we will declare a relatively small configuration
-with 2 sub-commands.  As above, we request automatically generated help,
-usage and version messages.  We also declare the author, copyright and
-the license of the application for greater accuracy in the emitted
+In this second example we will declare a configuration with 2
+sub-commands.  As above, we request automatically generated help, usage
+and version messages.  We also declare the author, copyright and the
+license of the application for greater accuracy in the emitted
 @option{--version} message.
 
 We tell one of the sub-commands to inherit the keywords from the root
 configuration using the @code{wanted} field of the @code{configuration}
 record type.
 
-This is a moderately complex example to show off some advanced features
-of the library.
-
 @lisp
-(use-modules (config)
-             (config api)
-             (config licenses)
-             (config parser sexp))
-
-(define config
-  (configuration
-   (name 'frobnigator)
-   (synopsis "The root configuration for frobnigator.")
-   (keywords
-    (list
-     ;; A setting (either #t or #f) that can be passed as a command-line param
-     ;; or set as a value in the configuration file.  In either case config
-     ;; will ensure the value is either #t or #f.  Getopt-long will ensure in
-     ;; command-line usage no value is specified.
-     (setting
-      (name 'verbose) (synopsis "Be chatty.")
-      (default #f) (test boolean?))
-     ;; A switch that can only be specified on the command-line.  It has no
-     ;; short version, and a value must be specified, though it defaults to a
-     ;; value.  The value is expected to be a white space delimited string
-     ;; which is then turned into a file name using handler.
-     (switch
-      (name 'lines)
-      (synopsis "Maximum lines to emit, or infinite if #f (default).")
-      (default #f) (test (lambda (v) (or (not v) (number? v))))
-      (example "36")
-      (handler string->number))))
-   (arguments
-    (list
-     (argument
-      (name 'file) (optional? #f)
-      (test file-exists?) (handler identity)
-      (example "/tmp/foo"))))
-   (subcommands
-    (list
-     ;; A very simple sub-configuration only inheriting the 'file positional
-     ;; command-line argument.
-     (configuration
-      (name 'make)
-      (synopsis "Configuration for the make sub-command.")
-      (wanted '((arguments . (file)))))
-     (configuration
-      (name 'complex-inheritance)
-      (alias 'cmp)
-      (synopsis "We inherit everything")
-      (wanted '((arguments . (file))
-                (keywords . (verbose lines)))))))
-   (directory (list (in-home ".frobnigator")
-                    (path (given "/tmp/frobnigator/")
-                          (eager? #t))))
-   (parser sexp-parser)
-   (copyright '(2015 2016))
-   (version "0.1")
-   (license agpl3+)
-   (author "Alex Sassmannshausen")))
+@include examples/frobnigator.scm
 @end lisp
 
 @c *********************************************************************
-@node Conventional use
-@section Conventional use
+@node Using the damn thing
+@section Using the damn thing
 
 In order to use our declared configuration in a manner similar to
 getopt-long, we can simply invoke @code{getopt-config} or
