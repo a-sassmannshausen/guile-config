@@ -11,6 +11,9 @@ declaration forms, and processors that take care of:
 - Output generation for (compiled from the configuration declaration):
   + --help and --usage
   + --version
+- Automatic deduction of short-versions of argument names
+- Support for arbitrarily nested subcommands
+- Support for keyword parameters as well as positional parameters
 
 * Dev Tasks
 
@@ -46,38 +49,38 @@ declaration forms, and processors that take care of:
       children
     - local: defined locally, but not inheritable?
 
-** TODO Stage 2: Write Configuration Files (output)
+***** Revised keyword inheritance
 
-** TODO Stage 3: Generate <options> object
-
-** TODO Stage 4: Fold Configuration Files into <options> (input)
-   - We either need to load all configuration files -OR-
-   - establish our subcommand before starting to parse
-   - I believe it is computationally less intensive to simply load all
-     configuration files, than to pre-determine the requested subcommand
-     (the latter requires a first pass of config arguments parsing).
-
-** TODO Stage 5: Fold Commandline Arguments into <options> (input)
-   - First step is determining subcommand
-   - Then we can fold in proper values passed
-
-** TODO Stage 6: rest
+      A simplified inheritance schema works as follows:
+      - A new property of configurations is added: 'wanted'.
+      - it accepts an assoc-list (defaulting to '())
+        + keys: keywords or arguments
+        + values: 'names' of the keywords or arguments that desire to be
+          inherited from the parent.
+      - This schema requires a little more typing in the case of a large set
+        of standard inheritable fields to each sub-command
+      - It also requires a lot less inheritance? flag fiddling in the common
+        case of a few options that want to be inherited, and not to all
+        subcommands.
+      - It also addresses the case whereby one subcommand wants to inherit a
+        specific setting from its parent, but a sibling subconfiguration does
+        not.
+      - It also makes the code faster & simpler:
+        - we always merely need to check the assoc-list to determine
+          inheritance rules, and then map assoc over the keywords/arguments
+          field of the parent to retrieve the inherited fields
+        - we remove the need for configuration level inheritance? checking for
+          valus inheritance:
 
 * Specification
 
   Guile Config expects a <configuration> as an input.  <configuration>s are a
   recursive data type that contains configuration specifications for your
   application.  The library will parse the specification, create configuration
-  files as needed, parse them, and finally generate a <flatconfig>.
+  files as needed, parse them, and finally generate a <codex>.
 
-  <flatconfig>s are record types that can be interacted with in a very similar
-  way as the interface provided by `getopt-long`.
-
-** Journey of configuration specification
-
-     configuration    ->          resolved    ->            options
-declared by --^          object with --^          object with --^
-programmer               inheritance resolved     user values merged
+  <codex>es are record types that can be interacted with in a very similar way
+  as the interface provided by `getopt-long` (i.e. option-ref).
 
 * Flow of Control
 
@@ -146,26 +149,24 @@ programmer               inheritance resolved     user values merged
     + argument
     + license
     + parser
+    + path
 
   - Internal
-    + configbag
-    + flatconfig
+    + codex
       * metadata
       * features
       * values
-    + fileconfig
 
 * User Interface Objects
 
 ** <configuration>                  | (guix records)
-
    - name                           | symbol
    - synopsis                       | string
    - description                    | string
    - keyword-parameters             | list[<secret> <switch> <setting>]
    - positional-parameters          | list[<argument>]
    - subcommands                    | list[<configuration>]
-   - configuration-directory        | string
+   - directory                      | list[<path>] || <path>
    - generate-help?                 | boolean[#t]
    - generate-usage?                | boolean[#t]
    - generate-version?              | boolean[#t]
@@ -175,17 +176,13 @@ programmer               inheritance resolved     user values merged
    - author                         | string
    - parser                         | <parser>
    - alias                          | symbol
-   - inheritance                    | boolean[#t]
 
 ** <secret>                         | (guix records)
-
    - name                           | symbol
    - value                          | mixed
    - synopsis                       | string
-   - inheritance                    | boolean[#t]
 
 ** <setting>                        | (guix records)
-
    - name                           | symbol
    - value                          | mixed
    - test                           | predicate
@@ -195,10 +192,8 @@ programmer               inheritance resolved     user values merged
    - description                    | string
    - example                        | string
    - optional                       | boolean[#t]
-   - inheritance                    | boolean[#t]
 
 ** <switch>                         | (guix records)
-
    - name                           | symbol
    - value                          | mixed
    - test                           | predicate
@@ -208,10 +203,8 @@ programmer               inheritance resolved     user values merged
    - description                    | string
    - example                        | string
    - optional                       | boolean[#t]
-   - inheritance                    | boolean[#t]
 
 ** <argument>                       | (guix records)
-
    - name                           | symbol
    - value                          | mixed
    - test                           | predicate
@@ -222,47 +215,44 @@ programmer               inheritance resolved     user values merged
    - optional                       | boolean[#f]
 
 ** <license>                        | (srfi srfi-9)
-
    - id                             | symbol
    - name                           | string
    - url                            | uri
 
 ** <parser>                         | (srfi srfi-9)
-
    - id                             | symbol
    - reader                         | proc(IO[in] -> <fileconfig>)
    - writer                         | proc(<flatconfig> -> IO[out])
 
+** <path>                           | (guix records)
+   - given                          | string
+   - eager?                         | boolean[#t]
+
 * Internal Objects
 
-** <configbag>                      | (srfi srfi-9)
-   - flatconfigs                    | list[<flatconfig>]
-   - subcommands                    | list[<configid>]
-   - config files                   | list[<configfilepath>]
-
-** <flatconfig>                     | (srfi srfi-9)
-   - <metadata>
-     + configid                     | symbol
-     + synopsis                     | string
-     + description                  | string
-     + configfilepath               | string
-     + license                      | license
-     + copyright                    | list[number]
-     + author                       | string
-     + <versionspec>                                     \
-       * version                    | free                      |  Abandon
-       * versionformat              | predicate                 |  Make version always string
-       * versionprinter             | proc(version->string)     /
+** <codex>                          | (srfi srfi-9)
    - <features>
-     + parser                       | <parser>
-     + alias                        | symbol
-     + inheritance                  | boolean
-   - <values>
-     + keyword-parameters           | list[<setting> <switch> <secret>]
-     + positional-parameters        | list[<argument>]
-     + private-parameters           | list[secret]
-       (config internal parameters) |
-
-** <fileconfig>                     | (srfi srfi-9)
-   - configid                       | symbol
-   - keyword-parameters             | list[<setting> <switch> <secret>]
+     + name
+     + synopsis
+     + description
+     + alias
+     + subcommands
+   - <metadata>
+     + directory
+     + version
+     + license
+     + copyright
+     + author
+     + parser
+     + generate-help?
+     + generate-usage?
+     + generate-version?
+     + generate-cmdtree?
+   - <valus>
+     + keyword-parameters
+     + arguments
+   - <reagents>
+     + inverted
+     + commandline
+     + raw
+     + configuration
