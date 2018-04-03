@@ -15,63 +15,6 @@ declaration forms, and processors that take care of:
 - Support for arbitrarily nested subcommands
 - Support for keyword parameters as well as positional parameters
 
-* Dev Tasks
-
-** DONE Stage 1: Compile Configuration Declarations
-
-*** TODO This involves merging inheritance
-    - for-each sub-command, decide what to do if any given configuration-field
-      is not given: inherit from parent, leave empty or set to default?
-    - for-each sub-command, inject parent's inheritable keywords & arguments
-      if they are set to inheritable & the sub-command is set to inheritable.
-    
-    This process needs to be completed or be transparently completeable when
-    we hand over to `parser-writer` for configuration file writing.
-
-**** Metadata inheritance
-
-     Many metadata fields are inheritable: author, copyright, license… these
-     are all fields that could be overriden in sub-commands, but could just be
-     the same throughout the project.
-
-**** Keyword inheritance
-
-    Most keywords are valid only within the context of their (sub-)command.
-    However, if a keyword is set to be inheritable? by the root command, and
-    is inherited by each (sub-)command, then such a keyword is considered
-    *global*.  Global keywords are relevant to `parsers`: they should be
-    written to a *global* program settings section, so they don't have to be
-    toggled individually in all configuration files for the sub-commands.
-
-    keyword properties:
-    - global: defined in root, inherited everywhere
-    - inherited: defined in parent, inherited locally & inheritable? to
-      children
-    - local: defined locally, but not inheritable?
-
-***** Revised keyword inheritance
-
-      A simplified inheritance schema works as follows:
-      - A new property of configurations is added: 'wanted'.
-      - it accepts an assoc-list (defaulting to '())
-        + keys: keywords or arguments
-        + values: 'names' of the keywords or arguments that desire to be
-          inherited from the parent.
-      - This schema requires a little more typing in the case of a large set
-        of standard inheritable fields to each sub-command
-      - It also requires a lot less inheritance? flag fiddling in the common
-        case of a few options that want to be inherited, and not to all
-        subcommands.
-      - It also addresses the case whereby one subcommand wants to inherit a
-        specific setting from its parent, but a sibling subconfiguration does
-        not.
-      - It also makes the code faster & simpler:
-        - we always merely need to check the assoc-list to determine
-          inheritance rules, and then map assoc over the keywords/arguments
-          field of the parent to retrieve the inherited fields
-        - we remove the need for configuration level inheritance? checking for
-          valus inheritance:
-
 * Specification
 
   Guile Config expects a <configuration> as an input.  <configuration>s are a
@@ -84,61 +27,55 @@ declaration forms, and processors that take care of:
 
 * Flow of Control
 
-  +---------------------+
-  | config declaration  |
-  +---------------------+
-            |
-  +-----------------------+   +-----------------------+\
-  | Generate configbag    |-->| create config files   | } OUTPUT
-  +-----------------------+   +-----------------------+/
-            |                            |
-            |       ====================================================================
-            |       |                    |                                             |
-            |       |        +-----------------------+   +-----------------------+     |\
-            |       |        |    Load fileconfigs   |   | Command Line Arguments|     | } INPUT
-            |       |        +-----------------------+   +-----------------------+     |/
-            |       |                    |                           |                 |
-            |       ====================================================================
-            |                            |                           |
-            |                +-----------------------+   +-----------------------+
-            \--------------->| Collapse to flatconfig|<--|  Establish Subcommand |
-                             +-----------------------+   +-----------------------+
-                                     |
-                                     |                         ============================
-                    +------------------------+         Yes     |                OUTPUT    |
-                    | Emit message desired?  |-----------------|------------\             |
-                    +------------------------+                 |            |             |
-                                     |                         |            |             |
-                                     | No                      |            |             |
-                                     |                         |            |             |
-                                     |                         |            |             |
-                                     |                         |            |             |
-                                     |                         |            |             |
-                                     |                         |            |             |
-                                     |                         |            |             |
-                 +---------------------------------+           |    +--------------+      |
-                 | Turn flatconfig -> getoptconfig |           |    | Emit Message |      |
-                 +---------------------------------+           |    +--------------+      |
-                                     |                         |            |             |
-                                     |                         |            |             |
-                       +--------------------------+            |            |             |
-                       |  parse commandline args  |            |            |             |
-                       +--------------------------+            |            |             |
-                                     |                         |            |             |
-                          ========================             |            |             |
-                          |          |           |             |            |             |
-                          |  +----------------+  |             |            |             |
-                          |  |   Run program  |  |             |            |             |
-                          |  +----------------+  |             |            |             |
-                          |          |           |             |            |             |
-                          |          |           |             |            |             |
-                          |    +----------+      |             |      +----------+        |
-                          |    |   Exit   |      |             |      |   Exit   |        |
-                          |    +----------+      |             |      +----------+        |
-                          |                      |             ============================
-                          |     PROGRAM CONTROL  |
-                          ========================
-
+      +---------------------------------------+                                                                      
+      |                                       |                                                                      
+      |    +-----------------------------+    |                                                                      
+      |    | Configuration Specification |    | Developer Time                                                       
+      |    +-----------------------------+    |                                                                      
+      |                   |                   |                                                                      
+      +---------------------------------------+                                                                      
+                          |                                                                                          
+  +----------------------------------------------------------------------------------------------------+             
+  |                       |                                                                            |             
+  |            +--------------------+                                                                  |             
+  |            | Generate Codex for |                                                                  |             
+  |            | invoked subcommand |                                                                  |
+  |            +--------------------+                                                                  |             
+  |                       |                                                                            |             
+  |                       |                                                                            |             
+  |          +---------------------------+                                                             |             
+  |          | Write eager configuration |                                                             |             
+  |          |          files            |                                                             |             
+  |          +---------------------------+                                                             |             
+  |                       |                                                                            |             
+  |                       |                                                                            |             
+  |             +---------------------+     Error in options                            auto-help?     |             
+  |             | Parse all existing  |                         +-------------------+                  |             
+  |             | configuration files |-------------------------| Emit error message| ------|          |             
+  |             +---------------------+                         +-------------------+       |          |             
+  |                       |                                                |          +-----------+    |             
+  |                       |                                                |          | Emit Help |    | Run Time    
+  |              +-------------------+                                     |          +-----------+    |             
+  |              |  Generate final   |                            +----------------+        |          |             
+  |              |      codex        |                            | Exit with error|--------|          |             
+  |              | (resolve options) |                            +----------------+                   |             
+  |              +-------------------+                                                                 |             
+  |                       |                                                                            |             
+  |                       |                                                                            |             
+  |           |-----------|-----------|                                                                |             
+  |           |  Help? & auto-help?   |                                                                |             
+  |           |                       |                                                                |             
+  |    +-----------------+      +-----------+                                                          |             
+  |    | Pass control to |      | Emit Help |                                                          |             
+  |    |      program    |      +-----------+                                                          |             
+  |    +-----------------+            |                                                                |             
+  |                                   |                                                                |             
+  |                                +------+                                                            |             
+  |                                | Exit |                                                            |             
+  |                                +------+                                                            |             
+  |                                                                                                    |             
+  +----------------------------------------------------------------------------------------------------+             
+ 
 * Objects Overview
 
   - User Interface (high level):
