@@ -68,6 +68,8 @@ EXTRA_DIST +=					\
   NEWS						\
   quickcheck/quickcheck.scm			\
   tests/quickcheck-defs.scm			\
+  doc/version.texi				\
+  doc/fdl-1.3.texi				\
   $(TESTS)
 
 ACLOCAL_AMFLAGS = -I m4

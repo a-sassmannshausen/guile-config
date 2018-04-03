@@ -20,10 +20,6 @@ if test "x$GUILD" = "x"; then
    AC_MSG_ERROR(['guild' binary not found; please check your guile-2.x installation.])
 fi
 
-pkgdatadir="$datadir/$PACKAGE"
-if test "x$guilesitedir" = "x"; then
-   guilesitedir="$pkgdatadir"
-fi
 AC_SUBST([guilesitedir])
 
 AC_OUTPUT
