@@ -10,18 +10,23 @@ Copyright © 2016 Alex Sassmannshausen <alex@pompo.co>
 
 * Changes in 0.2 (since 0.1.1)
 
+** New syntax for specifying `configurations`
+
+We now use a custom records style taken from Guix for the `configuration`
+specification, and for all user-visible record types.
+
+This will break previous uses of the config library.
+
 ** Add capacity to parse free or positional arguments to a program
 
-Configurations can now be passed a list of `free-parameter` records
-(see documentation), which allows programs to parse not just keyword,
-but also positional arguments.
-
-** Fix bug whereby subcommand was included in `free-paramaters`
+Configurations can now be passed a list of `argument` records (see
+documentation), which allows programs to parse not just keywords, but also
+positional arguments.
 
 ** Add inheritance to configurations
 
-Configurations can now inherit common options from their parents in a
-fairly granular way.  See the documentation for details.
+Configurations can now inherit common options from their parents using the
+`wanted` field of `configuration` records.
 
 ** License change to GPLv3+ from AGPLv3+
 

@@ -2,12 +2,6 @@
 
 #+TITLE: Hacking the Guile Config library
 
-Copyright © 2016 Alex Sassmannshausen <alex@pompo.co>
-
-  Copying and distribution of this file, with or without modification, are
-  permitted in any medium without royalty provided the copyright notice and
-  this notice are preserved.
-
 * Contributing
 
 By far the easiest way to hack on Guile config is to develop using Guix:
@@ -16,6 +10,7 @@ By far the easiest way to hack on Guile config is to develop using Guix:
   git clone https://gitlab.com/guile-projects/guile-config.git
   cd guile-config
   guix environment --pure --container -l guix.scm
+  # In the new shell, run:
   ./bootstrap && ./configure && make check
 #+END_SRC
 

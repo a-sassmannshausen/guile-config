@@ -1,0 +1,3 @@
+ChangeLog is currently not used, because I don't want to manually maintain it, nor make Perl a dependency of my distribution system (to run the gitlog-to-changelog script).
+
+I use git to develop this project, so for a detailed change log, simply run `git log`.
