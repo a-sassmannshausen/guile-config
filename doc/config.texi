@@ -2,7 +2,7 @@
 @c -*-texinfo-*-
 
 @c %**start of header
-@setfilename config.info
+@setfilename guile-config.info
 @documentencoding UTF-8
 @settitle Guile Config Reference Manual
 @c %**end of header
@@ -22,7 +22,7 @@ Documentation License''.
 
 @dircategory The Algorithmic Language Scheme
 @direntry
-* Guile Config: (Config).       Declarative program configuration
+* Guile Config: (guile-config).      Declarative program configuration
 @end direntry
 
 @titlepage
@@ -62,12 +62,16 @@ This document describes Guile Config version @value{VERSION}.
 @node Introduction
 @chapter Introduction
 
-Guile Config allows you to declare different options your program can
-handle.  It is a kind of mutated version of getopt-long.
+Guile Config removes the headache from managing complicated command-line
+applications.  And it is lovely to work with.  Think of it as a kind of
+mutated version of getopt-long.
 
-Of course there are different kind of options you may wish to declare:
-You've got your switches, your settings and sometimes, you've got your
-secrets.  We handle them all.
+Throughout this document I will refer to command-line arguments to the
+application as options.
+
+But of course there are different kind of options you may wish to use in
+your app: You've got your switches, your settings and sometimes, you've
+got your secrets.  We handle them all.
 
 @itemize
 @item
