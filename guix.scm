@@ -31,6 +31,13 @@
 ;;
 ;;  autoreconf -vif && ./configure && make check
 ;;
+;; To install it locally from the checkout, run:
+;;
+;;  # in a guix environment
+;;  ./bootstrap && ./configure && make distcheck
+;;  # outside the guix environment
+;;  guix package -f guix.scm
+;;
 ;;; Code:
 
 (use-modules (guix packages)

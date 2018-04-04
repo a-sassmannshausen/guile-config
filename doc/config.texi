@@ -55,7 +55,6 @@ This document describes Guile Config version @value{VERSION}.
 * Contributing::                Contributing to the Guile Config project.
 * Acknowledgments::             Thanks!
 * GNU Free Documentation License::  The license of this manual.
-* Concept Index::               Concepts.
 * Function Index::              Functions.
 @end menu
 
@@ -230,7 +229,7 @@ commands exposed by the config library.
 
 @c *********************************************************************
 @node Configuration
-@chapter Configuration
+@section Configuration
 
 The configuration data type is at the core of the Config library.  Every
 application using it will have at least one configuration defined.  This
@@ -364,8 +363,8 @@ This defaults to #f.
 @end deftp
 
 @c *********************************************************************
-@node Private Options
-@chapter Private Options
+@node Secrets
+@section Secrets
 
 Private options are configuration values that cannot be manipulated by
 the end user, either through command-line arguments or through
@@ -415,8 +414,8 @@ Normally private options are not named; instead they are simply defined
 immediately within the configuration in which it is needed.
 
 @c *********************************************************************
-@node Public Options
-@chapter Public Options
+@node Switches
+@section Switches
 
 @code{Public options} are configuration parameters that can be set by
 the end-user using command-line parameters to this program or
@@ -503,8 +502,8 @@ setting is set to #t, this option will be passed down.
 @end deffn
 
 @c *********************************************************************
-@node Open Options
-@chapter Open Options
+@node Settings
+@section Settings
 
 Open options are configuration parameters that can be set by the
 end-user using command-line parameters or using a configuration file.
@@ -604,8 +603,8 @@ setting is set to #t, this option will be passed down.
 @end deffn
 
 @c *********************************************************************
-@node Free Parameters
-@chapter Free Parameters
+@node Arguments
+@section Arguments
 
 Free parameters are configuration values that slot into the
 @code{free-params} field of the @code{configuration} procedure.  They
@@ -674,7 +673,7 @@ queried.
 
 @c *********************************************************************
 @node Initializers
-@chapter Initializers
+@section Initializers
 
 After declaring your configurations you will still need to initialize
 your program.  This is done by passing the command-line parameters the
@@ -695,8 +694,8 @@ emit an appropriate message and exit the program if so.
 @end deffn
 
 @c *********************************************************************
-@node Accessing Options In Your Program
-@chapter Accessing Options In Your Program
+@node Accessing Options
+@section Accessing Options
 
 At its heart, (guile config) aims to easily replace (ice-9
 getopt-long).  Because of this the library exports @code{option-ref},
@@ -722,7 +721,7 @@ or the empty list if you want to retrieve all arguments from
 
 @c *********************************************************************
 @node Utilities
-@chapter Utilities
+@section Utilities
 
 @deffn {Scheme Procedure} emit-help @var{codex} [@var{port}]
 @end deffn
