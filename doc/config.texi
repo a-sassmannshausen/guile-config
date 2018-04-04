@@ -27,7 +27,7 @@ Documentation License''.
 
 @titlepage
 @title The Complete Guile Config Manual
-@subtitle Using & Contributing to Guile Config
+@subtitle Learning to Use Guile Config in 60 Days
 @author Alex Sassmannshausen
 
 @page
@@ -49,13 +49,8 @@ This document describes Guile Config version @value{VERSION}.
 @menu
 * Introduction::                The need for Guile Config.
 * Overview::                    The low-down on usage.
-* Configuration::               The configuration.
+* Detailed API Reference::      The deep dive.
 * On Inheritance::              Inheritance fully explained.
-* Private Options::             Internal configuration options.
-* Public Options::              Commandline options.
-* Open Options::                Configuration file options.
-* Free Parameters::             Positional or free parameters.
-* Initializers::                Parsing command-line and config-file input.
 
 * Contributing::                Contributing to the Guile Config project.
 * Acknowledgments::             Thanks!
@@ -137,7 +132,7 @@ config library.
 
 @menu
 * Declaration::                     How to declare a configuration
-* Using the damn thing::            How to use a declared configuration
+* Using the darn thing::            How to use a declared configuration
 @end menu
 
 @c *********************************************************************
@@ -172,40 +167,41 @@ record type.
 @end lisp
 
 @c *********************************************************************
-@node Using the damn thing
-@section Using the damn thing
+@node Using the darn thing
+@section Using the darn thing
 
-In order to use our declared configuration in a manner similar to
-getopt-long, we can simply invoke @code{getopt-config} or
-@code{getopt-config-auto}.
+Usage is incredibly simple.  In most cases, you will simply want to
+use @code{getopt-config-auto}, which will return a @code{codex} that you
+can query with @code{option-ref}.
 
-Using @code{getopt-config-auto} is very convenient: it scans
-command-line arguments automatically for help and usage flags and emits
-messages automatically.  An example invocation would be:
+Using @code{getopt-config-auto} not only resolves the command-line flags
+and configuration files for your application. It also scans command-line
+arguments automatically for help usage & version flags and, unless our
+configuration was told not too, emits messages for them.
+
+Let us look at a fully fledged small program to show you how we might
+use the entire (guile config) user API.:
 
 @lisp
-;; We assume we are operating in the same file as in the previous chapter, so
-;; we don't need to load modules, and root-config is defined.
-
-(getopt-config-auto (command-line) root-config)
+@include examples/hello-world.scm
 @end lisp
 
-Using @code{getopt-config} on the other hand grants you more control. We
-don't automatically parse the command-line arguments for version or help
-flags.  We will have to do so manually, and invoke the appropriate
-message generators:
+Alternatively, you can give up some convenience for more control.  Using
+@code{getopt-config} means you won't automatically parse the
+command-line arguments for version or help flags.  We will have to do so
+manually, and invoke the appropriate message generators:
 
 @lisp
-;; We assume we are operating in the same file as in the previous chapter, so
-;; we don't need to load modules, and root-config is defined.
+;; We assume we are operating on a file that defines a configuration
+;; named config.
 
-(let ((config (getopt-config (command-line) root-config)))
-  (cond ((or (option-ref config 'usage #f)
-             (option-ref config 'help #f))
-         (emit-help config)
+(let ((options (getopt-config (command-line) config)))
+  (cond ((or (option-ref options 'usage #f)
+             (option-ref options 'help #f))
+         (emit-help options)
          (exit 0))
-        ((option-ref config 'version #f)
-         (emit-version config)
+        ((option-ref options 'version #f)
+         (emit-version options)
          (exit 0))
         (else 'do-stuff)))
 @end lisp
@@ -215,202 +211,157 @@ still benefit from our emitters.  Of course you are free to write your
 own version or usage emitters.
 
 @c *********************************************************************
+@node Detailed API Reference
+@chapter Detailed API Reference
+
+This chapter provides you with an in-depth reference to all user-visible
+commands exposed by the config library.
+
+@menu
+* Configuration::               The configuration.
+* Secrets::                     Internal configuration options.
+* Switches::                    Commandline options.
+* Settings::                    Configuration file options.
+* Arguments::                   Positional or free parameters.
+* Initializers::                Parsing command-line and config-file input.
+* Accessing Options::           Accessing options in your program.
+* Utilities::                   Icing on the cake.
+@end menu
+
+@c *********************************************************************
 @node Configuration
 @chapter Configuration
 
 The configuration data type is at the core of the Config library.  Every
 application using it will have at least one configuration defined.  This
-root configuration in turn can contain further (sub-) configurations and
-options (see below).
+root configuration in turn can contain further sub-configurations and
+options (see below). Sub-configurations, define subcommands that can be
+invoked by the end-user.
 
-The data type is described in detail below, however, normally it is
-instantiated using the @code{configuration} convenience procedure, which
-is outlined here:
-
-@deffn {Scheme Procedure} configuration name terse values @
-       [#:free-params '()] [#:config-dir #f] [#:long #f] [#:help? #f] @
-       [#:usage? #f] [#:version? #f] [#:license #f] [#:copyright #f] @
-       [#:author #f] [#:version-test? string?] [#:parser simple-parser] @
-       [#:alias #f] [#:inherit #f]
+@deftp {Data Type} configuration
 
 @code{configuration} allows you to create a new configuration or
 sub-configuration.  You should use this form when declaring your
-program's configurations, and normally do not need to provide the
-@code{long}, @code{version-test?} or @code{parser} keyword arguments.
-@code{config-dir} is only necessary if this configuration contains
-open-options, and @code{alias} is only necessary if you want to provide
-a short form of the sub-command defined by this configuration.  Finally,
-@code{license}, @code{copyright} and @code{author} can be omitted, but
-doing so will result in a very limited @emph{version} string.
+program's configurations.
 
-@code{values} will be a list of subconfigurations and options (see
-below).  In addition, the @code{free-params} optional argument allows
-you to declare additional free, or positional, arguments to your
-program.  This argument takes the form of a list of @code{<free-param>}
-objects (see below).
+@code{configuration}'s @code{generate-help?}, @code{generate-usage?} &
+@code{generate-version?} default to #t.  @code{directory} is optional
+unless you have @code{setting}s in your @code{keywords} list.  The
+@code{parser} defaults to @code{identity-parser}, which does not
+generate configuration files.
 
-@table @code
-@item name
+Finally, @code{license}, @code{copyright} and @code{author} can be
+omitted, but doing so will result in a very limited @emph{version}
+string.
+
+@table @asis
+@item @code{name}
 A symbol specifying the application/sub-command name.
 
-@item terse
+@item @code{synopsis}
 A string of less than 40 characters providing a brief explanation of
 this configuration.
 
-@item values
-A list containing further configurations (for sub-commands), private-,
-public- and open-options.
-
-@item free-params
-A list containing @code{<free-param>} records, defining the kind of free
-or positional parameters you expect your program to have.
-
-@item config-dir
-A string naming the directory in which a configuration file would be
-created if it is needed.  The configuration file will not be created if
-no open-options are part of this configuration, even if it a
-configuration directory was specified.
-
-@item long
+@item @code{long}
 A string providing a detailed explanation of this configuration.
 
-@item help?
-A boolean value indicating whether we should auto-provide the
-@emph{--help} public-option.
+@item @code{wanted}
+An association list, which defaults to '(), specifying what keywords and
+arguments should be inherited @pxref{On Inheritance} from the parent
+configuration.  The keys of the association list can only be
+@code{keywords} or @code{arguments}.
 
-@item usage?
-A boolean value indicating whether we should auto-provide the
-@emph{--usage} public-option.
+@example
+`((keywords . (length author))
+  (arguments . (input-file)))
+@end example
 
-@item version?
-A value indicating the version of this command or program.  Setting this
-will also automatically add the @emph{--version} public-option, and a
-@emph{version-number} private option.
+@item @code{keywords}
+A list containing @code{secret}s, @code{switch}es and/or
+@code{setting}s.
 
-This value can conform to any version scheme you desire, but it should
-match the predicate provided in @code{version-test?}.  By default the
-test is @code{string?}, meaning that by default, version? should be
-provided with a string value.
+@item @code{arguments}
+A list containing @code{argument}s. Arguments define positional
+parameters for your program.
 
-@item license
-This value can contain a <license> record or one of the following
-symbols: 'gplv3+ or 'agplv3+.  Finally, as a fallback, license can be
-set to an arbitrary string.  This string will be considered the name of
-our license.
+@item @code{subcommands}
+A list containing further @code{configuration}s.  These configurations
+are considered @emph{sub-configurations} of this
+@emph{parent-configuration}.  If there is no
+@emph{parent-configuration}, the current configuration is also referred
+to as the @emph{root-configuration}.
 
-@item copyright
+@emph{sub-configurations} define subcommands that can be invoked by the
+end-user when running your application.
+
+@item @code{directory}
+Either a single @code{path}, or a list of @code{path}s, depending on
+whether your application has a single location defining configuration
+files or multiple locations, where one takes precedence over the other.
+
+The ordering of the list defines which locations take precedence over
+others, with those towards the end overriding those at the beginning.
+
+@item @code{version}
+A simple string defining the version of this application.  This is used
+when generating the @emph{--version} string.
+
+@item @code{license}
+A @code{license} record.  We have many pre-defined licenses that we
+copypasta'd from the @emph{Guix} project, so any licenses defined there
+should work here.
+
+@item @code{copyright}
 A list of years for which the author of this program or sub-command
 claims copyright.
 
-@item author
+@item @code{author}
 A string containing the name of the author of this program or
 sub-command.
 
-@item version-test?
-A predicate with which we ensure that @code{version?} is a legitimate
-version data type.
-
-@item parser
+@item @code{parser}
 A @code{parser} record, which in turn provides a means to parse and
 write this configuration's configuration file.
 
-@item alias
+This defaults to the @emph{identity-parser}, which does not actually
+generate configuration files, and thus ignores the @code{directory}
+field.
+
+Currently the only alternative parser that comes out of the box is the
+@emph{sexp-parser}, which generates s-expression based configuration
+files.
+
+@item @code{alias}
 A symbol providing an alternative name for this configuration.  This can
 be useful for sub-commands, in order to provide shorter, alternative
 means of invocation.
 
-@item inherit
-A boolean indicating whether options defined as part of this
-configuration should be inherited downward by subcommand configurations.
-By default this is turned off, which means that a subconfiguration will
-simply use its own options.  When this is turned on, all options defined
-in this configuration, will also be available in subconfigurations
-(except for those options that specifically have inheritance switched
-off).  This allows you to define common options (such as ``help'' or
-``verbose'') at a base configuration.
+@item @code{generate-help?}
+A boolean value indicating whether we should automatically provide the
+@emph{--help} switch.
 
-Options that have the same name as inherited options will override the
-inherited options.
+This defaults to #t.
+
+@item @code{generate-usage?}
+A boolean value indicating whether we should automatically provide the
+@emph{--usage} switch.
+
+This defaults to #t.
+
+@item @code{generate-version?}
+A boolean value indicating whether we should automatically provide the
+@emph{--version} switch.
+
+This defaults to #t.
+
+@item @code{generate-version?}
+A boolean value indicating whether we should automatically provide the
+@emph{--cmdtree} switch.  This switch emits an outline of the
+subcommands available in your application.
+
+This defaults to #f.
 @end table
-
-A simple example configuration object with three options would be:
-
-@lisp
-(define root-config (configuration 'app-name
-                      "The root configuration for app-name."
-                      (list (private-option 'priv-opt
-                              "A private option"
-                              #:value #t)
-                            (open-option 'open-opt
-                              "An open option"
-                              #:value "hello"
-                              #:test  string?)
-                            (public-option 'public-opt
-                              "A public option"
-                              #:value "world"
-                              #:test  string?))
-                      #:config-dir "/tmp"))
-@end lisp
-@end deffn
-
-@noindent
-As the example contains an open option, which can be set via the
-configuration file, we must specify the @code{#:config-dir} keyword
-argument, to ensure the configuration file exists at run-time.
-
-@c *********************************************************************
-@node On Inheritance
-@chapter On Inheritance
-
-Inheritance can mean many things.  In our context, inheritance can be
-thought of as a means to achieve two things:
-
-@itemize
-@item
-Economy - there is no need to repeat common option declarations.
-
-@item
-Consistency - we can ensure we expose the same options for the same
-functionality, without having to manually ensure consistency.
-
-@end itemize
-
-Inheritance is controlled on two levels: at the configuration level, and
-at the option level.  Using these two mechanisms you should be able to
-control exactly what options should be exposed at what point in your
-program.
-
-Inheritance at the configuration level is normally switched off.  This
-means that subcommand configurations will not inherit any options from
-their direct parent.
-
-Switching it on in a configuration will result in its direct descendant
-inheriting the exact option definitions defined in this configuration.
-
-That descendant may in turn have inheritance switched off, which would
-result in it neither receiving any options from its parent nor in it
-passing on its options to its subconfigurations.
-
-As an example, a configuration may have inheritance switched on, and it
-may have two subcommand configurations.  The first has inheritance
-switched on, which results in it inheriting the configuration options
-from its parent, as well as displaying its own (which might, at least
-partially, override the parent options).  Its sibling, the second
-subcommand may have inheritance switched off, which would result in it
-only exposing its own options.
-
-Of course, the latter would also result in the standard ``help'',
-``usage'' and ``version'' options having to be redeclared in its
-configuration.
-
-Inheritance at the option level simply allows a specific configuration
-to block its children from inheriting specific options.  Thus, if you
-had a configuration that exposed one option, on top of the standard
-``help'', ``usage'' and ``version'' options, you might want to switch
-inheritance off for you additional option, but switch it on at the
-configuration level.  Subcommand configurations would then benefit from
-inheriting the standard options, without inheriting the, potentially
-inappropriate, additional option.
+@end deftp
 
 @c *********************************************************************
 @node Private Options
@@ -728,42 +679,118 @@ queried.
 After declaring your configurations you will still need to initialize
 your program.  This is done by passing the command-line parameters the
 script was invoked with, and your declared configuration to an
-initialize.  There are 4 such initializers, two of which work in a very
-similar fashion to getopt-long's initializer, and two of which integrate
-with an io monad paradigm.
+initializer.
 
-@deffn {Scheme Procedure} getopt-config args config @
-       [#:input-port stdin] [#:output-port stdout] @
-       [#:error-port stderr]
-@deffnx {Scheme Procedure} getopt-config-auto args config @
-        [#:input-port stdin] [#:output-port stdout] @
-        [#:error-port stderr]
+@deffn {Scheme Procedure} getopt-config @var{args} @var{config}
+@deffnx {Scheme Procedure} getopt-config-auto @var{args} @var{config}
 
 The above procedures work very similarly.  Both have taken their
-inspiration from @code{getopt-long}'s way of doing things: @code{args}
+inspiration from @code{getopt-long}'s way of doing things: @var{args}
 should be the command-line arguments passed to the script and
-@code{config} should be the declared configuration.
+@var{config} should be the declared configuration.
 
 The second procedure will automatically check whether the end-user
 requested @emph{--help}, @emph{--usage}, or @emph{--version} and will
 emit an appropriate message and exit the program if so.
 @end deffn
 
-@deffn {Scheme Procedure} getmio-config args config
-@deffnx {Scheme Procedure} getmio-config-auto args config
+@c *********************************************************************
+@node Accessing Options In Your Program
+@chapter Accessing Options In Your Program
 
-These procedures return io monadic values, which contain the promise to
-carry out the steps necessary to parse the command-line arguments
-@var{args}, in light of the configuration declared in @var{config}.
+At its heart, (guile config) aims to easily replace (ice-9
+getopt-long).  Because of this the library exports @code{option-ref},
+which behaves almost identically to (ice-9 getopt-long)'s
+@code{option-ref}.
 
-The second procedure also contains logic which will automatically check
-whether the end-user requested @emph{--help}, @emph{--usage}, or
-@emph{--version} and will emit an appropriate message and exit the
-program if so.
+@deffn {Scheme Procedure} option-ref @var{codex} @var{key} [@var{default}]
+Try to find the value for @var{key} in @var{codex}, returning
+@var{default} if the value is unset or cannot be found.
 
-For an example of using this monadic style, please see the documentation
-provided with the monads module.
+@var{key} should be:
+@itemize
+@item
+a symbol if you want to retrieve a keyword from @var{codex};
+@item
+a list of exactly one symbol, if you want to retrieve an argument from
+@var{codex};
+@item
+or the empty list if you want to retrieve all arguments from
+@var{codex}.
+@end itemize
 @end deffn
+
+@c *********************************************************************
+@node Utilities
+@chapter Utilities
+
+@deffn {Scheme Procedure} emit-help @var{codex} [@var{port}]
+@end deffn
+
+@deffn {Scheme Procedure} emit-version @var{codex} [@var{port}]
+@end deffn
+
+@deffn {Scheme Procedure} options-write @var{codex} [@var{configuration} @var{eager-only?}]
+@end deffn
+
+@c *********************************************************************
+@node On Inheritance
+@chapter On Inheritance
+
+Inheritance can mean many things.  In our context, inheritance can be
+thought of as a means to achieve two things:
+
+@itemize
+@item
+Economy - there is no need to repeat common option declarations.
+@item
+Consistency - we can ensure we expose the same options for the same
+functionality, without having to manually ensure consistency.
+@end itemize
+
+There are 2 uses of inheritance in this library.
+
+Within the (guile config) API, inheritance is implemented at the
+@code{configuration} level, through the @code{wanted} field.  This field
+can be set in any sub-configuration to indicate which precise keywords
+or arguments should be inherited from its parent.  In this way options
+can be passed down through the configuration graph as far as required.
+
+There are some limitations to this approach, namely:
+@itemize
+@item
+It is not possible to automate inheritance.
+@item
+Every inherited option must be explicitly specified.
+@end itemize
+
+In addition to inheritance through the @code{wanted} field, we also have
+automatic inheritance in the following @code{configuration} fields:
+@itemize
+@item
+directory
+@item
+version
+@item
+license
+@item
+copyright
+@item
+author
+@item
+parser
+@item
+generate-help?
+@item
+generate-usage?
+@item
+generate-version?
+@end itemize
+
+This means that you only have to set these fields once, in the
+@emph{root-configuration}.  After this, if you want to change a field in
+one of the children, you can just set that field in the child
+configuration.
 
 @c *********************************************************************
 @node Contributing
@@ -780,19 +807,14 @@ for practical details about contributions.
 @node Acknowledgments
 @chapter Acknowledgments
 
-Guile Config does what it does only by virtue of standing on the
-shoulders of the giants that have helped build the Guile community.
+Guile Config is intended as a gift to the Guile & Guix communities,
+without whom I would never have learned to program.
 
 @c *********************************************************************
 @node GNU Free Documentation License
 @appendix GNU Free Documentation License
 
 @include fdl-1.3.texi
-
-@c *********************************************************************
-@node Concept Index
-@unnumbered Concept Index
-@printindex cp
 
 @c *********************************************************************
 @node Function Index
