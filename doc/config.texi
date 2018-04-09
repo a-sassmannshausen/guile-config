@@ -370,112 +370,80 @@ This defaults to #f.
 @node Secrets
 @section Secrets
 
-Private options are configuration values that cannot be manipulated by
+@code{secret}s are configuration values that cannot be manipulated by
 the end user, either through command-line arguments or through
-configuration files.  Internally, private-options are used in order to
-implement the version, license, author and copyright configuration
-values.  Private options could be used to store any other internal
-program configuration values, such as data directories etc.
+configuration files.  In short, these might be any configuration
+variables that you want to set within your application.  Using the
+secret data type for this allows you to use the configuration API.
 
-@deffn {Scheme Procedure} private-option name terse [#:long #f] @
-       [#:value '<unset>] [#:test boolean?] [#:inherit #t]
+Secrets are also inheritable using the @code{wanted} field of
+@code{configuration}s.
 
-@code{private-option} is a convenience procedure to create private
-options.  Private options should normally always have a value, and the
-combination of '<unset> as value and boolean? as test will cause an
-error.
+@deftp {Data Type} secret
 
-@table @code
-@item name
-A symbol specifying the name of the private option.
+@table @asis
+@item @code{name}
+A symbol specifying the name of the secret.
 
-@item terse
+@item @code{synopsis}
 A string of less than 40 characters providing a brief explanation of
-this private option.
+this secret.
 
-@item long
-A string providing a detailed explanation of this private option.
-
-@item value
-The value of this private option.  This can be an arbitrary values, but
-it should pass the predicate defined with @code{test}.  Value is
-normally either set by the programmer, or by this programs build system
-at installation time.
-
-@item test
-A predicate to evaluate @code{value}.  We will throw an error if
-@code{value} does not satisfy this predicate.
-
-@item inherit
-A boolean indicating whether this option should be passed down to the
-containing configuration's subcommand configurations.  By default this
-is set to #t, which means that if the containing configuration's inherit
-setting is set to #t, this option will be passed down.
+@item @code{default}
+The value of this secret.
 @end table
-@end deffn
-
-Normally private options are not named; instead they are simply defined
-immediately within the configuration in which it is needed.
+@end deftp
 
 @c *********************************************************************
 @node Switches
 @section Switches
 
-@code{Public options} are configuration parameters that can be set by
+@code{switch}es are configuration parameters that can be set by
 the end-user using command-line parameters to this program or
-sub-command.  Using the @code{help?}, @code{usage?} or @code{version?}
-keywords during configuration definition will result in the automatic
-addition of the 'help, 'usage and 'version public options to the
-configuration (using @code{version?} will also result in the automatic
-addition of the 'version-number private-option).
+sub-command. 
 
-@deffn {Scheme Procedure} public-option name terse [#:long #f] @
-       [#:value '<unset>] [#:single-char #f] [#:test boolean?] @
-       [#:handler identity] [#:example ``VALUE''] [#:optional? #f] @
-       [#:inherit #t]
+@deftp {Data Type} switch
 
-@code{public-option} is a convenience procedure to create public
-options.  They are normally defined anonymously as part of
-configurations, but can be named if the same public option is to be used
-in multiple configurations.
+@table @asis
+@item @code{name}
+A symbol specifying the name of the switch.
 
-@table @code
-@item name
-A symbol specifying the name of the public option.
+@item @code{synopsis}
+A string of less than 40 characters providing a brief explanation.
 
-@item terse
-A string of less than 40 characters providing a brief explanation of
-this public option.
+@item @code{description}
+A string providing a detailed explanation of this switch.
 
-@item long
-A string providing a detailed explanation of this public option.
+@item @code{default}
+The default value of this switch.  This can be any value that passes the
+predicate defined with @code{test}.  If you do not specify a value then
+it will be associated with an <empty> value.  To create a mandatory
+switch, you have to set the default to @code{#f} instead.
 
-@item value
-The value of this public option.  This can be an arbitrary values, but
-it should pass the predicate defined with @code{test}.  Value is
-normally set by the programmer, but can be left '<unset> to generate a
-mandatory command-line parameter.  Alternatively, if value is set to #t
-or #f, and test is left as a boolean?, then we will generate a
-command-line parameter that acts as a flag, i.e. which does not take a
-value.
+Alternatively, if you would like to create a boolean commandline
+argument or flag then you should set @code{default} to @code{#t} or
+@code{#f} and @code{test} to @code{boolean?}
 
-@item single-char
-If specified this should be a character type value, specifying the short
-name for this command-line parameter.
+This defaults to @code{<empty>}.
 
-@item test
-A predicate with which we test the value supplied by default in
-@code{value} or by the end-user on the command-line.  If this public
-option is not a @emph{flag}, then @code{test} should either be
-@code{string?}, or you should specify @code{handler} to transform the
-value specified by the end user on the command-line into the value that
-will pass test.
+@item @code{character}
+If specified this should be the character that you want to use as the
+@emph{short version} for this option.  By default this library generates
+short options from the first letter of a switch or setting.  If you
+would rather not generate a short option, simply set this to @code{#f}.
+
+@item @code{test}
+A predicate with which we test the value in @code{default} or by the
+end-user on the command-line.  If this public option is not a
+@emph{flag}, then @code{test} should either be @code{string?}, or you
+should specify @code{handler} to transform the value specified by the
+end user on the command-line into the value that will pass test.
 
 For instance, if we expect the end user to provide a number as input to
-this public option, then we can set @code{test} to @code{number?} and
+this switch, then we can set @code{test} to @code{number?} and
 @code{handler} to @code{string->number}.
 
-@item handler
+@item @code{handler}
 A procedure of one argument that will be applied to the value supplied
 by the end-user on the command-line to transform that value (which will
 always be a string) into a different type that can pass @code{test}.
@@ -485,95 +453,77 @@ perform input validation entirely at the configuration parsing stage,
 thus freeing the programmer from having to do this in the body of the
 program itself.
 
-@item example
-An string providing an example value which will be displayed to the
+@item @code{example}
+A string providing an example value which will be displayed to the
 end-user when they request @code{--help}, or @code{--usage}.
 
-@item optional?
-If set to #t, this command-line parameter can be used as a flag, or
-alternatively, it can be passed a value by the end-user.  Setting this
-to #t will require you to provide an appropriate @code{handler}, taking
-either a boolean or a string as input.  You may also have to provide a
-@code{test} predicate that expects inputs of potentially different
-types.
-
-@item inherit
-A boolean indicating whether this option should be passed down to the
-containing configuration's subcommand configurations.  By default this
-is set to #t, which means that if the containing configuration's inherit
-setting is set to #t, this option will be passed down.
+@item @code{optional?}
+This defaults to @code{#t}.  If you want an option to be mandatory, set
+this to @code{#f}.
 @end table
-@end deffn
+@end deftp
 
 @c *********************************************************************
 @node Settings
 @section Settings
 
-Open options are configuration parameters that can be set by the
+@code{settings} are configuration parameters that can be set by the
 end-user using command-line parameters or using a configuration file.
-Attaching any open options to a configuration will require that you also
-specify a @code{config-dir} for that configuration, otherwise an error
-will be thrown.
+If you attach settings to a @code{configuration}, but you don't specify
+a @code{directory}, or continue to use the @code{identity-parser}, then
+your @code{settings} will not be written to configuration files.
 
-Open options will cause the program to generate configuration files if
-they do not yet exist, and set the values in those according to the
-default values of all open options defined within the configuration.
-The program will then parse the configuration files, and initialize all
-open options to the values found in the configuration files.  Finally
-the program will parse its command-line parameters and override any
-values initialized by the configuration files with the new values
-derived from the command-line.
+@code{setting}s will cause the program to generate configuration files
+if they do not yet exist, on the following conditions:
+- you are not using the @code{identity-parser}
+- you have at least one @code{directory} set
+- you have at least one eager @code{directory} set.
 
-@deffn {Scheme Procedure} open-option name terse [#:long #f] @
-       [#:value '<unset>] [#:single-char #f] [#:test boolean?] @
-       [#:handler identity] [#:example ``VALUE''] [#:optional? #f] @
-       [#:inherit #t]
+After configuration files are generated we then try to read them, and
+merge them as fall-backs into the command-line passed options.
 
-@code{open-option} is a convenience procedure to create open options.
-They are normally defined anonymously as part of configurations, but can
-be named if the same open option is to be used in multiple
-configurations.
+@deftp {Data Type} setting
 
-@table @code
-@item name
-A symbol specifying the name of the open option.
+@table @asis
+@item @code{name}
+A symbol specifying the name of the switch.
 
-@item terse
-A string of less than 40 characters providing a brief explanation of
-this open option.
+@item @code{synopsis}
+A string of less than 40 characters providing a brief explanation.
 
-@item long
-A string providing a detailed explanation of this open option.
+@item @code{description}
+A string providing a detailed explanation of this setting.
 
-@item value
-The value of this open option.  This can be an arbitrary values, but it
-should pass the predicate defined with @code{test}.  Value should not be
-left as '<unset>.  Doing so is currently unspecified.  If value is set
-to #t or #f, and test is left as a boolean?, then we will generate a
-command-line parameter that acts as a flag, i.e. which does not take a
-value.
+@item @code{default}
+The default value of this setting.  This can be any value that passes
+the predicate defined with @code{test}.  If you do not specify a value
+then it will be associated with an <empty> value.  To create a mandatory
+setting, you have to set the default to @code{#f} instead.
 
-@item single-char
-If specified this should be a character type value, specifying the short
-name for this command-line parameter.
+Alternatively, if you would like to create a boolean commandline
+argument or flag then you should set @code{default} to @code{#t} or
+@code{#f} and @code{test} to @code{boolean?}
 
-@item test
-A predicate with which we test the value supplied by default in
-@code{value}, in the configuration file or by the end-user on the
-command-line.  If this open option is not a @emph{flag}, then
-@code{test} should either be @code{string?}, or you should specify
-@code{handler} to transform the value specified by the end user on the
-command-line into the value that will pass test.
+This defaults to @code{<empty>}.
+
+@item @code{character}
+If specified this should be the character that you want to use as the
+@emph{short version} for this option.  By default this library generates
+short options from the first letter of a setting or setting.  If you
+would rather not generate a short option, simply set this to @code{#f}.
+
+@item @code{test}
+A predicate with which we test the value in @code{default} or by the
+end-user on the command-line.  If this public option is not a
+@emph{flag}, then @code{test} should either be @code{string?}, or you
+should specify @code{handler} to transform the value specified by the
+end user on the command-line into the value that will pass test.
 
 For instance, if we expect the end user to provide a number as input to
-this public option, then we can set @code{test} to @code{number?} and
+this setting, then we can set @code{test} to @code{number?} and
 @code{handler} to @code{string->number}.
 
-For values provided in the configuration file, we simply apply the
-predicate directly to the value, meaning that configuration files must
-provide Scheme values.
-
-@item handler
+@item @code{handler}
 A procedure of one argument that will be applied to the value supplied
 by the end-user on the command-line to transform that value (which will
 always be a string) into a different type that can pass @code{test}.
@@ -583,76 +533,55 @@ perform input validation entirely at the configuration parsing stage,
 thus freeing the programmer from having to do this in the body of the
 program itself.
 
-Handlers are only used when parsing command-line input, not when parsing
-values specified in the configuration files.
+This handler will not be applied to the value returned from a
+configuration file, unless a backend specifically implements this.
 
-@item example
-An string providing an example value which will be displayed to the
+@item @code{example}
+A string providing an example value which will be displayed to the
 end-user when they request @code{--help}, or @code{--usage}.
 
-@item optional?
-If set to #t, this command-line parameter can be used as a flag, or
-alternatively, it can be passed a value by the end-user.  Setting this
-to #t will require you to provide an appropriate @code{handler}, taking
-either a boolean or a string as input.  You may also have to provide a
-@code{test} predicate that expects inputs of potentially different
-types.
-
-@item inherit
-A boolean indicating whether this option should be passed down to the
-containing configuration's subcommand configurations.  By default this
-is set to #t, which means that if the containing configuration's inherit
-setting is set to #t, this option will be passed down.
+@item @code{optional?}
+In contrast with @code{switch}es, this defaults to @code{#f}, thus
+making settings mandatory by default.  This is because they are normally
+read from a configuration file.
 @end table
-@end deffn
+@end deftp
 
 @c *********************************************************************
 @node Arguments
 @section Arguments
 
-Free parameters are configuration values that slot into the
-@code{free-params} field of the @code{configuration} procedure.  They
-are additional ``options'' that allow you to declare what kind of
-positional arguments your application accepts.
+@code{argument}sa are positional command-line parameters for your
+application. The ordering in the list of @code{arguments} natually
+matters.  Please also bear in mind that, for the same reason, you cannot
+have mandatory positional arguments after your first optional positional
+argument.
 
-As we are talking positional arguments here, the ordering in the list of
-@code{free-params} is important.  Please also bear in mind that, for the
-same reason, you cannot have mandatory positional arguments after your
-first optional positional argument.
+@deffn {Data Type} argument
 
-Finally, inheritance is not implemented for Free Parameters.
+@table @asis
+@item @code{name}
+A symbol specifying the name of the argument.
 
-@deffn {Scheme Procedure} free-param name terse [#:long #f] @
-       [#:value '<unset>] [#:test boolean?] [#:handler identity] @
-       [#:example ``Value''] [#:optional #f]
-
-@code{free-param} is a convenience procedure to create free or
-positional arguments.  Free parameters normally are mandatory, and do
-not need to be given a default value, though it may be useful to do so
-if you declare one optional.
-
-@table @code
-@item name
-A symbol specifying the name of the free parameter.
-
-@item terse
+@item @code{synopsis}
 A string of less than 40 characters providing a brief explanation of
-this free parameter.
+this argument.
 
-@item long
-A string providing a detailed explanation of this free parameter.
+@item @code{description}
+A string providing a detailed explanation of this argument.
 
-@item value
-The value of this free parameter.  This can be an arbitrary value, but
-it should pass the predicate defined with @code{test}.  Value is
-normally either set by the programmer, or by this programs build system
-at installation time.
+@item @code{default}
+The default value of this argument, if it is not overriden on the
+command-line by the end user.  This can be an arbitrary value, but it
+should pass the predicate defined with @code{test}.
 
-@item test
-A predicate to evaluate @code{value}.  We will throw an error if
-@code{value} does not satisfy this predicate.
+This defaults to @code{<empty>}.
 
-@item handler
+@item @code{test}
+A predicate to evaluate the value passed by the end user.  We will throw
+an error if that value does not satisfy this predicate.
+
+@item @code{handler}
 A procedure of one argument that will be applied to the value supplied
 by the end-user on the command-line to transform that value (which will
 always be a string) into a different type that can pass @code{test}.
@@ -662,16 +591,18 @@ perform input validation entirely at the configuration parsing stage,
 thus freeing the programmer from having to do this in the body of the
 program itself.
 
-@item example
+@item @code{example}
 A string providing an example value which will be displayed to the
 end-user when they request @code{--help}, or @code{--usage}.  If
 @code{example} is not provided, we will use the name of the free
 parameter instead.
 
-@item optional?
+@item @code{optional?}
 If set to #t, this free paramater can be omitted by the end user.  In
 this case we will either use the default value, or return #f when it is
 queried.
+
+This defaults to @code{#t}
 @end table
 @end deffn
 
@@ -728,12 +659,25 @@ or the empty list if you want to retrieve all arguments from
 @section Utilities
 
 @deffn {Scheme Procedure} emit-help @var{codex} [@var{port}]
+
+Generate and emit a help message for @code{codex} to @code{port}.
 @end deffn
 
 @deffn {Scheme Procedure} emit-version @var{codex} [@var{port}]
+
+Generate and emit a version message for @code{codex} to @code{port}.
 @end deffn
 
 @deffn {Scheme Procedure} options-write @var{codex} [@var{configuration} @var{eager-only?}]
+
+Write @code{codex} to its configuration files.  Normally this means
+writing the @code{settings} contained in @code{codex}, as well as some
+meta-information, and documentation.  If @code{eager-only?} is @code{#t}
+then we only write to those directories specified in the
+@code{directory} field of the codex that are eager.
+
+We only write to configuration files that do not yet exist — if a
+configuration file exists where we would write one, we do nothing.
 @end deffn
 
 @c *********************************************************************
