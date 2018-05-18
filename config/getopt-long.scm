@@ -140,7 +140,7 @@ arguments in RESULT after testing them & updating them from CMD-VALUES."
       (string-join (full-command codex)) type
       (match type ("argument" "") (_ "--")) name)
      (throw 'quit 'test-kwd/arg))
-    (value value)))
+    (#t value)))
 
 (define (codex->getopt-spec keywords)
   "Return the getopt-long option-spec corresponding to the <setting> and
