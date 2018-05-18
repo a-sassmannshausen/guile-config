@@ -84,7 +84,7 @@
                                (begin
                                  (format #t "error: ~a: setting predicate failed: --~a~%"
                                          (string-join (full-command codex)) kwd-name)
-                                 (throw 'quit)))))
+                                 (throw 'quit 'keyword-parsing)))))
                         (#f kwd)))
                      (v (set-keyword-default kwd
                                              ((keyword-handler kwd) v)))))))
@@ -103,9 +103,16 @@
               (else
                (lp (cdr args)
                    (cdr cmds)
-                   (cons (set-argument-default
-                          (first args)
-                          ((argument-handler (first args)) (first cmds)))
+                   (cons (let ((value ((argument-handler (first args))
+                                       (first cmds))))
+                           (if ((argument-test (first args)) value)
+                               (set-argument-default (first args) value)
+                               (begin
+                                 (format
+                                  #t "error: ~a: argument predicate failed: --~a~%"
+                                  (string-join (full-command codex))
+                                  (argument-name (first args)))
+                                 (throw 'quit 'argument-parsing))))
                          result)))))))))
 
 (define (codex->getopt-spec keywords)
