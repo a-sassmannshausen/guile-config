@@ -100,12 +100,8 @@ arguments in RESULT after testing them & updating them from CMD-VALUES."
          (reverse result))
         ((null? cmd-values)
          ;; We're out of cmdline arguments, -> defaults for rest
-         (append (reverse result)
-                 (map (lambda (argument)
-                        (if (argument-optional? argument)
-                            argument
-                            argument))
-                      arguments)))
+         (append (reverse result) (map (cut optional-argument <> codex)
+                                       arguments)))
         (else
          (parse-arguments
           (cdr arguments)
@@ -120,6 +116,18 @@ arguments in RESULT after testing them & updating them from CMD-VALUES."
              (argument-test (first arguments))
              codex "argument"))
            result)))))
+
+(define (optional-argument argument codex)
+  "Return ARGUMENT if it is optional or emit an error."
+  (match (argument-optional? argument)
+    (#t argument)
+    (_
+     (format
+      ;; We want to emit:
+      ;; error: FULL-COMMAND: argument must be specified: NAME
+      #t "error: ~a: argument must be specified: ~a~%"
+      (string-join (full-command codex)) (argument-name argument))
+     (throw 'quit 'optional-arg))))
 
 (define (test-kwd/arg value name test codex type)
   "Return VALUE if it passes TEST or throw an error pointing at NAME of TYPE."
