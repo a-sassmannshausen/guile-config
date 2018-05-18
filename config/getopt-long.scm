@@ -78,13 +78,9 @@
                      (($ <empty>)
                       (match (assoc kwd-name settings)
                         ((n . v)
-                         (let ((value ((keyword-handler kwd) v)))
-                           (if ((keyword-test kwd) value)
-                               (set-keyword-default kwd value)
-                               (begin
-                                 (format #t "error: ~a: setting predicate failed: --~a~%"
-                                         (string-join (full-command codex)) kwd-name)
-                                 (throw 'quit 'keyword-parsing)))))
+                         (set-keyword-default
+                          kwd (test-kwd/arg ((keyword-handler kwd) v) n
+                                            (keyword-test kwd) "keyword")))
                         (#f kwd)))
                      (v (set-keyword-default kwd
                                              ((keyword-handler kwd) v)))))))
@@ -103,17 +99,25 @@
               (else
                (lp (cdr args)
                    (cdr cmds)
-                   (cons (let ((value ((argument-handler (first args))
-                                       (first cmds))))
-                           (if ((argument-test (first args)) value)
-                               (set-argument-default (first args) value)
-                               (begin
-                                 (format
-                                  #t "error: ~a: argument predicate failed: --~a~%"
-                                  (string-join (full-command codex))
-                                  (argument-name (first args)))
-                                 (throw 'quit 'argument-parsing))))
-                         result)))))))))
+                   (cons
+                    (set-argument-default
+                     (first args)
+                     (test-kwd/arg ((argument-handler (first args))
+                                    (first cmds))
+                                   (argument-name (first args))
+                                   (argument-test (first args))
+                                   "argument"))
+                    result)))))))))
+
+(define (test-kwd/arg value name test type)
+  "Return VALUE if it passes TEST or throw an error pointing at NAME of TYPE."
+  (match (test value)
+    (#f
+     (format
+      #t "error: ~a: ~a predicate failed: --~a~%"
+      (string-join (full-command codex)) type name)
+     (throw 'quit 'test-kwd/arg))
+    (value value)))
 
 (define (codex->getopt-spec keywords)
   "Return the getopt-long option-spec corresponding to the <setting> and
