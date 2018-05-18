@@ -77,45 +77,60 @@
                    (match (option-ref gtl kwd-name (empty))
                      (($ <empty>)
                       (match (assoc kwd-name settings)
-                        ((n . v)
+                        ((name . value)
                          (set-keyword-default
-                          kwd (test-kwd/arg ((keyword-handler kwd) v) n
-                                            (keyword-test kwd) "keyword")))
+                          kwd (test-kwd/arg name ((keyword-handler kwd) value)
+                                            (keyword-test kwd) codex
+                                            "keyword")))
                         (#f kwd)))
-                     (v (set-keyword-default kwd
-                                             ((keyword-handler kwd) v)))))))
+                     (value
+                      (set-keyword-default kwd ((keyword-handler kwd)
+                                                value)))))))
            kwds)
       ;; Arguments can't be retrieved by name with getopt-long.  Instead,
       ;; fetch all args, then handle them ourselves.
-      (let lp ((args args)
-               (cmds (option-ref gtl '() '()))
-               (result '()))
-        (cond ((null? args)
-               ;; Processed all args, -> done.
-               (reverse result))
-              ((null? cmds)
-               ;; We're out of cmdline args, -> defaults for rest
-               (append (reverse result) args))
-              (else
-               (lp (cdr args)
-                   (cdr cmds)
-                   (cons
-                    (set-argument-default
-                     (first args)
-                     (test-kwd/arg ((argument-handler (first args))
-                                    (first cmds))
-                                   (argument-name (first args))
-                                   (argument-test (first args))
-                                   "argument"))
-                    result)))))))))
+      (parse-arguments args (option-ref gtl '() '()) codex)))))
 
-(define (test-kwd/arg value name test type)
+(define* (parse-arguments arguments cmd-values codex #:optional (result '()))
+  "Cycle through ARGUMENTS, the configuration's defined arguments, &
+CMD-VALUES the arguments provided on the command-line, returning a new list of
+arguments in RESULT after testing them & updating them from CMD-VALUES."
+  (cond ((null? arguments)
+         ;; Processed all arguments, -> done.
+         (reverse result))
+        ((null? cmd-values)
+         ;; We're out of cmdline arguments, -> defaults for rest
+         (append (reverse result)
+                 (map (lambda (argument)
+                        (if (argument-optional? argument)
+                            argument
+                            argument))
+                      arguments)))
+        (else
+         (parse-arguments
+          (cdr arguments)
+          (cdr cmd-values)
+          codex
+          (cons
+           (set-argument-default
+            (first arguments)
+            (test-kwd/arg
+             ((argument-handler (first arguments)) (first cmd-values))
+             (argument-name (first arguments))
+             (argument-test (first arguments))
+             codex "argument"))
+           result)))))
+
+(define (test-kwd/arg value name test codex type)
   "Return VALUE if it passes TEST or throw an error pointing at NAME of TYPE."
   (match (test value)
     (#f
      (format
-      #t "error: ~a: ~a predicate failed: --~a~%"
-      (string-join (full-command codex)) type name)
+      ;; We want to emit:
+      ;; error: FULL-COMMAND: ARGUMENT|KEYWORD predicate failed: [--]NAME
+      #t "error: ~a: ~a predicate failed: ~a~a~%"
+      (string-join (full-command codex)) type
+      (match type ("argument" "") (_ "--")) name)
      (throw 'quit 'test-kwd/arg))
     (value value)))
 
