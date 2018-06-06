@@ -87,29 +87,15 @@ Values from this codex can be extracted using `OPTION-REF'."
                                           configuration-subcommands)))
                (apply metadata (metadata-fetch (reagents-inverted reagents)))
                (apply valus (valus-fetch (reagents-inverted reagents)))
-               reagents))
-         (parser (codex-metadatum 'parser cdx))
-         (config-file (metadata-directory (codex-metadata cdx))))
+               reagents)))
     ;; We should try to ensure eager configuration files exist now: write them
     ;; if non-existing
     (options-write cdx configuration #t)
     ;; Try parsing commandline and config file.  On error...
     (catch 'quit
       (lambda _
-        (read-commandline
-         (reagents-commandline reagents)
-         (cond ((empty? config-file) '())
-               ((single-configuration-file? config-file)
-                (parser-read parser
-                             (parser-file parser config-file
-                                          (features-name
-                                           (codex-features cdx)))))
-               (else
-                (read-codexes parser
-                              (map (cute parser-file parser <>
-                                         (features-name (codex-features cdx)))
-                                   config-file))))
-         cdx))
+        (read-commandline (reagents-commandline reagents)
+                          (options-read codex configuration) cdx))
       ;; Emit help if requested, else quit
       (lambda (k vals)
         (when (configuration-generate-help? configuration)
@@ -137,6 +123,31 @@ the complete configuration configuration files."
                                          (codex-features codex)
                                          (codex-valus codex)))))
                     config-file)))))
+
+(define (options-read codex configuration)
+  (let ((parser (codex-metadatum 'parser codex))
+        (config-file (metadata-directory (codex-metadata cdx)))
+        (feature-name (features-name (codex-features cdx))))
+    (cond ((empty? config-file) '())    ; No config file -> no settings
+          ((single-configuration-file? config-file)
+           ;; Either read complete or just this codex's config file.
+           (or (parser-read-complete configuration config-file)
+               (parser-read parser
+                            (parser-file parser config-file feature-name))))
+          ((n-configuration-files? config-file)
+           ;; For each config-file, either read complete or just this codex's
+           ;; config file, with later config-files overriding earlier ones.
+           (let ((htable (make-hash-table)))
+             (for-each
+              (lambda (path)
+                (for-each
+                 (match-lambda
+                   ((n . d) (hash-set! htable n d)))
+                 (or (parser-read-complete configuration path)
+                     (parser-read parser (parser-file parser path
+                                                      feature-name)))))
+              config-file)
+             (hash-map->list cons htable))))))
 
 
 ;;;;; Helpers
@@ -321,15 +332,6 @@ PORT, defaulting to stdout."
          (features-description features)
          (features-synopsis features)
          (filter setting? (valus-keywords valus))))
-
-(define (read-codexes parser paths)
-  (let ((htable (make-hash-table)))
-    (for-each (lambda (path)
-                (for-each (match-lambda
-                            ((n . d) (hash-set! htable n d)))
-                          (parser-read parser path)))
-              paths)
-    (hash-map->list cons htable)))
 
 (define (sort-subcommands subcommands)
   "Return a formatted string consisting of the name and terse description of

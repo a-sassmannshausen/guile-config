@@ -37,7 +37,8 @@
 
             <parser>
             make-parser parser?
-            parser-file parser-read parser-write parser-write-complete
+            parser-file parser-read parser-write
+            parser-read-complete parser-write-complete
 
             identity-parser
 
@@ -575,11 +576,12 @@ CONFIGURATION should be a <configuration>."
 ;;; <configuration>.
 
 (define-record-type <parser>
-  (make-parser file-proc read-proc write-proc write-complete-proc)
+  (make-parser file-proc read-proc write-proc read-complete-proc write-complete-proc)
   parser?
   (file-proc parser-file-proc)
   (read-proc parser-read-proc)
   (write-proc parser-write-proc)
+  (read-complete-proc parser-read-complete-proc)
   (write-complete-proc parser-write-complete-proc))
 
 (define (parser-file parser <path> subcmd-name)
@@ -598,6 +600,11 @@ CONFIGURATION should be a <configuration>."
     (#f #f)
     ((? procedure? proc) (proc configuration))))
 
+(define (parser-read-complete configuration file-path)
+  (match (parser-read-complete-proc (configuration-parser configuration))
+    (#f #f)
+    ((? procedure? proc) (proc configuration file-path))))
+
 
 ;;;; Parsers
 
@@ -611,4 +618,4 @@ CONFIGURATION should be a <configuration>."
 ;; switches (as no configuration files are available to set defaults)
 
 (define identity-parser
-  (make-parser (const "") (const '()) (const #t) (const #f)))
+  (make-parser (const "") (const '()) (const #t) (const #f) (const #f)))
