@@ -95,7 +95,7 @@ Values from this codex can be extracted using `OPTION-REF'."
     (catch 'quit
       (lambda _
         (read-commandline (reagents-commandline reagents)
-                          (options-read codex configuration) cdx))
+                          (options-read cdx configuration) cdx))
       ;; Emit help if requested, else quit
       (lambda (k vals)
         (when (configuration-generate-help? configuration)
@@ -126,8 +126,8 @@ the complete configuration configuration files."
 
 (define (options-read codex configuration)
   (let ((parser (codex-metadatum 'parser codex))
-        (config-file (metadata-directory (codex-metadata cdx)))
-        (feature-name (features-name (codex-features cdx))))
+        (config-file (metadata-directory (codex-metadata codex)))
+        (feature-name (features-name (codex-features codex))))
     (cond ((empty? config-file) '())    ; No config file -> no settings
           ((single-configuration-file? config-file)
            ;; Either read complete or just this codex's config file.
