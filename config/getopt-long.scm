@@ -71,21 +71,25 @@
      codex
      (valus
       (map (lambda (kwd)
-             (if (secret? kwd)
-                 kwd                    ; <secret> is never updated
-                 (let ((kwd-name (keyword-name kwd)))
-                   (match (option-ref gtl kwd-name (empty))
-                     (($ <empty>)
-                      (match (assoc kwd-name settings)
-                        ((name . value)
-                         (set-keyword-default
-                          kwd (test-kwd/arg name ((keyword-handler kwd) value)
-                                            (keyword-test kwd) codex
-                                            "keyword")))
-                        (#f kwd)))
-                     (value
-                      (set-keyword-default kwd ((keyword-handler kwd)
-                                                value)))))))
+             (cond ((secret? kwd) kwd)  ; <secret> is never updated
+                   ((switch? kwd)       ; <switch> just takes cmdline value
+                    (set-keyword-default
+                     kwd
+                     (option-ref gtl (switch-name kwd) (switch-default kwd))))
+                   ((setting? kwd)      ; <setting>: cmdline || config-file
+                    (set-keyword-default
+                     kwd
+                     (match (option-ref gtl (setting-name kwd)
+                                        (setting-default kwd))
+                       ((? (cute equal? (setting-default kwd) <>) default)
+                        (or (and=> (assoc (setting-name kwd) settings)
+                                   (match-lambda
+                                     ((name . value)
+                                      (test-kwd/arg value name
+                                                    (setting-test kwd) codex
+                                                    "keyword"))))
+                            default))
+                       (value value))))))
            kwds)
       ;; Arguments can't be retrieved by name with getopt-long.  Instead,
       ;; fetch all args, then handle them ourselves.
