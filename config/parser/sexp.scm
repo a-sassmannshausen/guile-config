@@ -27,7 +27,7 @@
   #:use-module (ice-9 pretty-print)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-  #:export (sexp-parser))
+  #:export (sexp-parser simple-sexp-parser))
 
 ;;;;; Parser Interface
 
@@ -64,40 +64,11 @@ PATH."
   "Write the configuration-file for the subcommand identified by SUBCMD-NAME,
 with strings SUBCMD-DESC & SUBCMD-SYNOPSIS at file-path.  We don't know about
 configurations or codexes, we simply write SETTINGS."
-  (define (print-comment field)
-    (format #t ";;~%")
-    (for-each (cut format #t ";; ~a~%" <>)
-              (string-split (fill-paragraph field 75) #\newline)))
-
   (when (and (not (null? settings)) (not (file-exists? file-path)))
     (mkdir-p (dirname file-path))
     (with-output-to-file file-path
       (lambda _
-        (format #t ";;;; ~a~%" subcmd-name)
-        (cond ((not (string-null? subcmd-desc))
-               (print-comment subcmd-desc))
-              ((not (string-null? subcmd-synopsis))
-               (print-comment subcmd-synopsis)))
-        (newline)
-        (for-each (lambda args
-                    (match args
-                      ((name synopsis description example default)
-                       (format #t ";;;;; ~a~%" name)
-                       (cond ((not (string-null? description))
-                              (print-comment description))
-                             ((not (string-null? synopsis))
-                              (print-comment synopsis)))
-                       (when (not (string-null? example))
-                         (format #t ";;~%;; Example: ~a~%" example))
-                       (newline)
-                       (pretty-print (cons name default))
-                       (newline))
-                      (_ 'unworkable-configuration)))
-                  (map setting-name settings)
-                  (map setting-synopsis settings)
-                  (map setting-description settings)
-                  (map setting-example settings)
-                  (map setting-default settings))))))
+        (writer subcmd-name subcmd-desc subcmd-synopsis settings)))))
 
 (define (parser-read file-path)
   "Return an association-list of the settings contained in the
@@ -115,6 +86,68 @@ configuration-file at FILE-PATH."
     (lambda args
       '())))
 
+(define (parser-write-complete configuration)
+  (define (file-name path)
+    (parser-file path (configuration-name configuration)))
+  (define (prepper configuration)
+    (writer (configuration-name configuration)
+            (configuration-description configuration)
+            (configuration-synopsis configuration)
+            (filter setting? (configuration-keywords configuration)))
+    (for-each prepper (configuration-subcommands configuration)))
+  (if (single-configuration-file? (configuration-directory configuration))
+      (let ((file (file-name (configuration-directory configuration))))
+        (when (not (file-exists? file))
+          (mkdir-p (dirname file))
+          (with-output-to-file file (lambda _ (prepper configuration)))))
+      (for-each (compose (lambda (file)
+                           (when (not (file-exists? file))
+                             (mkdir-p (dirname file))
+                             (with-output-to-file file
+                               (lambda _ (prepper configuration)))))
+                         file-name)
+                (configuration-directory configuration))))
+
+(define (parser-read-complete configuration path)
+  (parser-read (parser-file path (configuration-name configuration))))
+
 ;; Return the complete parser.
 (define sexp-parser
-  (make-parser parser-file parser-read parser-write #f))
+  (make-parser parser-file parser-read parser-write #f #f))
+
+;; A sexp parser that combines all settings in a single file.
+(define simple-sexp-parser
+  (make-parser parser-file #f #f parser-read-complete parser-write-complete))
+
+;;;; Helpers
+
+(define (writer subcmd-name subcmd-desc subcmd-synopsis settings)
+  (define (print-comment field)
+    (format #t ";;~%")
+    (for-each (cut format #t ";; ~a~%" <>)
+              (string-split (fill-paragraph field 75) #\newline)))
+  (format #t ";;;; ~a~%" subcmd-name)
+  (cond ((not (string-null? subcmd-desc))
+         (print-comment subcmd-desc))
+        ((not (string-null? subcmd-synopsis))
+         (print-comment subcmd-synopsis)))
+  (newline)
+  (for-each (lambda args
+              (match args
+                ((name synopsis description example default)
+                 (format #t ";;;;; ~a~%" name)
+                 (cond ((not (string-null? description))
+                        (print-comment description))
+                       ((not (string-null? synopsis))
+                        (print-comment synopsis)))
+                 (when (not (string-null? example))
+                   (format #t ";;~%;; Example: ~a~%" example))
+                 (newline)
+                 (pretty-print (cons name default))
+                 (newline))
+                (_ 'unworkable-configuration)))
+            (map setting-name settings)
+            (map setting-synopsis settings)
+            (map setting-description settings)
+            (map setting-example settings)
+            (map setting-default settings)))
