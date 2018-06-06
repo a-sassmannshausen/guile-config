@@ -71,25 +71,30 @@
      codex
      (valus
       (map (lambda (kwd)
+             ;; In the specific cases that we are dealing with a switch or a
+             ;; setting, and a value is provided on the commandline, we need
+             ;; to run that value through handler before updating the keyword
+             ;; value.  This is done in the code below.
              (cond ((secret? kwd) kwd)  ; <secret> is never updated
                    ((switch? kwd)       ; <switch> just takes cmdline value
-                    (set-keyword-default
-                     kwd
-                     (option-ref gtl (switch-name kwd) (switch-default kwd))))
+                    (match (option-ref gtl (switch-name kwd) (empty))
+                      (($ <empty>) kwd)
+                      (value (set-keyword-default
+                              kwd ((switch-handler kwd) value)))))
                    ((setting? kwd)      ; <setting>: cmdline || config-file
-                    (set-keyword-default
-                     kwd
-                     (match (option-ref gtl (setting-name kwd)
-                                        (setting-default kwd))
-                       ((? (cute equal? (setting-default kwd) <>) default)
-                        (or (and=> (assoc (setting-name kwd) settings)
+                    (match (option-ref gtl (setting-name kwd) (empty))
+                      (($ <empty>)
+                       (or (set-keyword-default
+                            kwd
+                            (and=> (assoc (setting-name kwd) settings)
                                    (match-lambda
                                      ((name . value)
                                       (test-kwd/arg value name
                                                     (setting-test kwd) codex
-                                                    "keyword"))))
-                            default))
-                       (value value))))))
+                                                    "keyword")))))
+                           kwd))
+                      (value (set-keyword-default
+                              kwd ((setting-handler kwd) value)))))))
            kwds)
       ;; Arguments can't be retrieved by name with getopt-long.  Instead,
       ;; fetch all args, then handle them ourselves.
