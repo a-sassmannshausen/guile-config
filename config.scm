@@ -158,11 +158,11 @@ the complete configuration configuration files."
 (define (metadata-fetch inverted)
   "Return the metadata values with inheritance resolved, for INVERTED."
   (map (lambda (getter)
-         ;; Delay as we may never need some of the fields we generate here.
          (let lp ((current-entry (inverted-next-config inverted))
                   (rest (cdr inverted)))
            (match (getter current-entry)
-             ((or (? not value) (? empty? value))
+             ((or (? not value) (? empty? value)
+                  (? (cute equal? identity-parser <>) value))
               (if (null? rest)
                   value
                   (lp (inverted-next-config rest)
