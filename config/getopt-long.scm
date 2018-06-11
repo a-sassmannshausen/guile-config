@@ -165,7 +165,7 @@ arguments in RESULT after testing them & updating them from CMD-VALUES."
           (($ <switch> name _ test handler _ _ _ _ optional)
            (cons (getopt-spec name test handler character optional #f) done))
           (($ <setting> name ($ <empty>) test handler _ _ _ _ optional)
-           (cons (getopt-spec name test handler character optional #t) done))
+           (cons (getopt-spec name test handler character optional #f) done))
           (($ <setting> name _ test handler _ _ _ _ optional)
            (cons (getopt-spec name test handler character optional #f) done))
           (_ done))))
