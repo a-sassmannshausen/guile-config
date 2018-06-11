@@ -33,7 +33,7 @@
 
 (define-module (tests quickcheck-defs)
   #:use-module (config api)
-  #:use-module (quickcheck quickcheck)
+  #:use-module (tests quickcheck)
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
   #:use-module (srfi srfi-1)
@@ -110,7 +110,7 @@
    (synopsis     ($safe-string))
    (description  ($safe-string))
    (example      ($safe-string))
-   (optional?    ($boolean))))
+   (optional?    #t)))
 
 
 

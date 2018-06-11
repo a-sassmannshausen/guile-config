@@ -40,7 +40,7 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-64)
-  #:use-module (quickcheck quickcheck)
+  #:use-module (tests quickcheck)
   #:use-module (tests quickcheck-defs))
 
 
