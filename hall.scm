@@ -22,15 +22,18 @@
             (scheme-file "helpers")))))
         (tests ((directory
                  "tests"
-                 ((scheme-file "config")
-                  (scheme-file "quickcheck-defs")
-                  (scheme-file "quickcheck")))))
+                 ((scheme-file "config")))))
         (programs ((directory "scripts" ())))
         (documentation
          ((text-file "README")
           (text-file "HACKING")
           (text-file "COPYING")
-          (directory "doc" ((texi-file "config")
-                            (texi-file "fdl-1.3")))))
+          (directory "doc" ((texi-file "config")))
+          (directory "examples" ((scheme-file "frobnigator")
+                                 (scheme-file "hello-world")
+                                 (scheme-file "simple")))))
         (infrastructure
-         ((scheme-file "guix") (scheme-file "hall")))))
+         ((scheme-file "guix") (scheme-file "hall")
+          (directory "doc" ((texi-file "fdl-1.3")))
+          (directory "tests" ((scheme-file "quickcheck")
+                              (scheme-file "quickcheck-defs")))))))
