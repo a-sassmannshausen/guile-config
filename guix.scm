@@ -1,6 +1,6 @@
 ;; guix.scm --- GNU Guix package recipe    -*- coding: utf-8 -*-
 ;;
-;; Copyright (C) 2015 Alex Sassmannshausen <alex@pompo.co>
+;; Copyright (C) 2015-2018 Alex Sassmannshausen <alex@pompo.co>
 ;;
 ;; Author: Alex Sassmannshausen <alex@pompo.co>
 ;; Created: 12 July 2015
@@ -40,40 +40,34 @@
 ;;
 ;;; Code:
 
-(use-modules (guix packages)
-             (guix licenses)
-             (guix download)
-             (guix build-system gnu)
-             (gnu packages)
-             (gnu packages autotools)
-             (gnu packages guile)
-             (gnu packages pkg-config)
-             (gnu packages texinfo))
+(use-modules
+ (guix packages)
+ (guix licenses)
+ (guix download)
+ (guix build-system gnu)
+ (gnu packages)
+ (gnu packages autotools)
+ (gnu packages guile)
+ (gnu packages pkg-config)
+ (gnu packages texinfo))
 
 (package
   (name "guile-config")
-  (version "0.2")
-  (source "./guile-config-0.2.tar.gz")
+  (version "0.3")
+  (source "./guile-config-0.3.tar.gz")
   (build-system gnu-build-system)
+  (arguments `())
   (native-inputs
    `(("autoconf" ,autoconf)
      ("automake" ,automake)
      ("pkg-config" ,pkg-config)
      ("texinfo" ,texinfo)))
   (inputs `(("guile" ,guile-2.2)))
-  (arguments
-   '(#:phases (modify-phases %standard-phases
-                (add-before 'configure 'set-guilesitedir
-                            (lambda _
-                              (substitute* "Makefile.in"
-                                (("^guilesitedir =.*$")
-                                 "guilesitedir = \
-$(datadir)/guile/site/$(GUILE_EFFECTIVE_VERSION)\n"))
-                              #t))
-                (add-after 'unpack 'autoreconf
-                           (lambda _
-                             (zero? (system* "autoreconf" "-vfi")))))))
-  (synopsis "Guile application configuration parsing library.")
-  (description "Guile-config is a library enhancing (ice-9 getopt-long).")
-  (home-page "https://gitlab.com/guile-projects/guile-config")
+  (propagated-inputs `())
+  (synopsis
+   "Guile application configuration parsing library.")
+  (description
+   "Guile Config is a library providing a declarative approach to application configuration specification.  The library provides clean configuration declaration forms, and processors that take care of: configuration file creation; configuration file parsing; command-line parameter parsing using getopt-long; basic GNU command-line parameter generation (--help, --usage, --version); automatic output generation for the above command-line parameters.")
+  (home-page
+   "https://gitlab.com/a-sassmannshausen/guile-config")
   (license gpl3+))

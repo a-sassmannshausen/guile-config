@@ -1,13 +1,13 @@
 (hall-description
  (name "config")
  (prefix "guile")
- (version "0.2")
+ (version "0.3")
  (author "Alex Sassmannshausen")
  (copyright (2016 2017 2018))
  (synopsis "Guile application configuration parsing library.")
  (description "Guile Config is a library providing a declarative approach to application configuration specification.  The library provides clean configuration declaration forms, and processors that take care of: configuration file creation; configuration file parsing; command-line parameter parsing using getopt-long; basic GNU command-line parameter generation (--help, --usage, --version); automatic output generation for the above command-line parameters.")
  (home-page
-  "https://gitlab.com/guile-projects/guile-config")
+  "https://gitlab.com/a-sassmannshausen/guile-config")
  (license gpl3+)
  (dependencies `())
  (files (libraries
@@ -28,6 +28,9 @@
          ((text-file "README")
           (text-file "HACKING")
           (text-file "COPYING")
+          (text-file "NEWS")
+          (text-file "ChangeLog")
+          (text-file "AUTHORS")
           (directory "doc" ((texi-file "config")))
           (directory "examples" ((scheme-file "frobnigator")
                                  (scheme-file "hello-world")
