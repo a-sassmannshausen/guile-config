@@ -1,0 +1,24 @@
+                                                              -*- org -*-
+#+TITLE: Guile Config NEWS – history of user-visible changes
+#+STARTUP: content hidestars
+
+Copyright © 2018 Alex Sassmannshausen <alex@pompo.co>
+
+  Copying and distribution of this file, with or without modification,
+  are permitted in any medium without royalty provided the copyright
+  notice and this notice are preserved.
+
+Please send Guile Config bug reports to alex@pompo.co.
+
+* Changes in 0.3 (since 0.2 [undocumented here])
+
+** Use Guile Hall to manage project infrastructure.
+** Settings are now no longer run through handlers.
+   It is expected the parser ensures settings from commandlines have the
+   correct type.  They are still run against tests.
+** Configuration Files are assumed to provide mandatory arguments.
+   If they are not provided they will resolve to <empty> when they are first
+   accessed.
+** Ensure we run handlers over arguments on command-line.
+** We support single-configuration files for an entire program space.
+** The sexp-parser now provides a single-configuration file variant.
