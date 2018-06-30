@@ -1,0 +1,6 @@
+
+#!/bin/sh
+
+"@abs_top_builddir@/pre-inst-env" "$@"
+
+exit $?
