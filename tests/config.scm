@@ -49,7 +49,7 @@
 (test-begin "config")
 
 (quickcheck-assert "Configurations?"
- configuration? ($configuration))
+                   configuration? ($configuration))
 
 (quickcheck-assert
  "Getopt-Config?"
@@ -100,5 +100,3 @@
 (system "rm -r /tmp/file*")
 
 (test-end "config")
-
-(exit (= (test-runner-fail-count (test-runner-current)) 0))
