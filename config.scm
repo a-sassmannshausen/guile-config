@@ -29,6 +29,10 @@
   #:use-module (ice-9 threads)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+  #:re-export (configuration
+               secret switch setting argument
+               path in-cwd in-home full-command
+               agpl3 agpl3+ gpl2 gpl2+ gpl3 gpl3+)
   #:export (getopt-config-auto
             getopt-config
             option-ref
