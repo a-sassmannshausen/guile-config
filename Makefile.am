@@ -36,13 +36,16 @@ SUFFIXES = .scm .go
 
 SOURCES = config.scm \
           config/parser/sexp.scm \
+          config/getopt-long.scm \
+          config/records.scm \
           config/api.scm \
           config/licenses.scm \
-          config/records.scm \
-          config/getopt-long.scm \
           config/helpers.scm
 
-TESTS = tests/config.scm
+TESTS = tests/getopt-long.scm \
+        tests/quickcheck.scm \
+        tests/quickcheck-defs.scm \
+        tests/config.scm
 
 TEST_EXTENSIONS = .scm
 SCM_LOG_DRIVER =                                \
@@ -67,14 +70,14 @@ EXTRA_DIST += README \
               NEWS \
               ChangeLog \
               AUTHORS \
+              examples/simple.scm \
               examples/frobnigator.scm \
               examples/hello-world.scm \
-              examples/simple.scm \
+              NEWS \
+              AUTHORS \
+              ChangeLog \
               guix.scm \
               hall.scm \
-              doc/fdl-1.3.texi \
-              tests/quickcheck.scm \
-              tests/quickcheck-defs.scm \
               build-aux/test-driver.scm \
               $(TESTS)
 
