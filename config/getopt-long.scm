@@ -28,6 +28,9 @@
   #:use-module (srfi srfi-26)
   #:export (read-commandline))
 
+;; We no longer use getopt-long's predicate functionality because using it
+;; would result in running an option's handler twice during parsing.  This is
+;; problematic when that handler performs side effects.
 (define (read-commandline commandline settings codex)
   "Return a codex, with commandline merged into codex, getopt-long style."
   ;; Turn Codex into getopt-long construct, then query getopt-long with
@@ -60,13 +63,12 @@
   (let* ((vls (codex-valus codex))
          (kwds (append (valus-keywords vls) (augment-keywords)))
          (args (valus-arguments vls))
-         (gtl (getopt-long
-               ;; Here we insert the subcommand path to the command we're
-               ;; executing in commandline, so that getopt-long emits the full
-               ;; path
-               (cons (string-join (cons "error:" (full-command codex)))
-                     commandline)
-               (codex->getopt-spec kwds))))
+         ;; Here we insert the subcommand path to the command we're
+         ;; executing in commandline, so that getopt-long emits the full
+         ;; path
+         (err-line (cons (string-join (cons "error:" (full-command codex)))
+                         commandline))
+         (gtl (getopt-long err-line (codex->getopt-spec kwds))))
     (set-codex-valus
      codex
      (valus
@@ -78,12 +80,20 @@
              (cond ((secret? kwd) kwd)  ; <secret> is never updated
                    ((switch? kwd)       ; <switch> just takes cmdline value
                     (match (option-ref gtl (switch-name kwd) (empty))
-                      (($ <empty>) kwd)
-                      (value (set-keyword-default
-                              kwd ((switch-handler kwd) value)))))
+                      (($ <empty>) kwd) ; No need to run handler or test
+                      (value
+                       ;; Update our option value from cmdline after running
+                       ;; handler and test.
+                       (set-keyword-default
+                        kwd (test-kwd/arg ((switch-handler kwd) value)
+                                          (switch-name kwd)
+                                          (switch-test kwd) codex
+                                          "keyword")))))
                    ((setting? kwd)      ; <setting>: cmdline || config-file
                     (match (option-ref gtl (setting-name kwd) (empty))
                       (($ <empty>)
+                       ;; Update from config file after running tests &
+                       ;; handler or use default
                        (or (set-keyword-default
                             kwd
                             (and=> (assoc (setting-name kwd) settings)
@@ -93,8 +103,14 @@
                                                     (setting-test kwd) codex
                                                     "keyword")))))
                            kwd))
-                      (value (set-keyword-default
-                              kwd ((setting-handler kwd) value)))))))
+                      (value
+                       ;; Update our option value from cmdline after running
+                       ;; handler and test.
+                       (set-keyword-default
+                        kwd (test-kwd/arg ((setting-handler kwd) value)
+                                          (setting-name kwd)
+                                          (setting-test kwd) codex
+                                          "keyword")))))))
            kwds)
       ;; Arguments can't be retrieved by name with getopt-long.  Instead,
       ;; fetch all args, then handle them ourselves.
@@ -185,7 +201,7 @@ arguments in RESULT after testing them & updating them from CMD-VALUES."
               '((value optional))
               '((value #t))))))
 
-  (apply list name `(predicate ,(compose test handler)) `(required? ,required)
+  (apply list name `(required? ,required)
          (match single-char
            ((? char?) (cons `(single-char ,single-char)
                             (value-entry)))
